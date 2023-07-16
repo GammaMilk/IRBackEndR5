@@ -192,8 +192,9 @@ type:
 	| 'float'
 	| labelType
 	| arrayType
+	| type '*'
 	| namedType;
-
+	
 intType:
 	IntType;
 pointerType:
@@ -204,9 +205,6 @@ arrayType:
 	'[' IntLit 'x' type ']';
 namedType:
 	LocalIdent;
-
-
-
 
 params: (param (',' param)*)?;
 param: type LocalIdent?;
@@ -245,4 +243,5 @@ fPred:
 	| 'ult'
 	| 'une'
 	| 'uno';
+
 
