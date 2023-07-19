@@ -9,7 +9,7 @@
 
 #    include <iostream>
 
-namespace R5BE
+namespace MiddleIR
 {
 enum LOG_LEVEL {
     LOG_LEVEL_DEBUG,
@@ -18,7 +18,7 @@ enum LOG_LEVEL {
 };
 extern LOG_LEVEL g_log_level;
 std::ostream&    sysyDebug(LOG_LEVEL level = LOG_LEVEL_DEBUG);
-}   // namespace R5BE
+}   // namespace MiddleIR
 
 #    define ANSI_COLOR_BLUE "\033[1;34m"
 #    define ANSI_COLOR_ORANGE "\033[1;33m"
@@ -28,14 +28,14 @@ std::ostream&    sysyDebug(LOG_LEVEL level = LOG_LEVEL_DEBUG);
 
 #    define LOGD(message)                                                                       \
         do {                                                                                    \
-            R5BE::sysyDebug(R5BE::LOG_LEVEL_DEBUG)                                              \
+            MiddleIR::sysyDebug(MiddleIR::LOG_LEVEL_DEBUG)                                              \
                 << ANSI_COLOR_BLUE << "[D] File: " << __FILE__ << ANSI_COLOR_RESET              \
                 << ANSI_COLOR_ORANGE << ":" << __LINE__ << ANSI_COLOR_RESET << ":\t" << message \
                 << std::endl;                                                                   \
         } while (0)
 #    define LOGW(message)                                                            \
         do {                                                                         \
-            R5BE::sysyDebug(R5BE::LOG_LEVEL_WARNING)                                 \
+            MiddleIR::sysyDebug(MiddleIR::LOG_LEVEL_WARNING)                                 \
                 << ANSI_COLOR_YELLOW << "[W] File: " << __FILE__ << ANSI_COLOR_RESET \
                 << ANSI_COLOR_ORANGE << ":" << __LINE__ << ANSI_COLOR_RESET << ":\t" \
                 << ANSI_COLOR_YELLOW << message << ANSI_COLOR_RESET << std::endl;    \
@@ -43,7 +43,7 @@ std::ostream&    sysyDebug(LOG_LEVEL level = LOG_LEVEL_DEBUG);
 
 #    define LOGE(message)                                                            \
         do {                                                                         \
-            R5BE::sysyDebug(R5BE::LOG_LEVEL_ERROR)                                   \
+            MiddleIR::sysyDebug(MiddleIR::LOG_LEVEL_ERROR)                                   \
                 << ANSI_COLOR_RED << "[E] File: " << __FILE__ << ANSI_COLOR_RESET    \
                 << ANSI_COLOR_ORANGE << ":" << __LINE__ << ANSI_COLOR_RESET << ":\t" \
                 << ANSI_COLOR_RED << message << ANSI_COLOR_RESET << std::endl;       \

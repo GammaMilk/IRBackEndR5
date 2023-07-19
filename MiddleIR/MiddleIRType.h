@@ -2,26 +2,26 @@
 // Created by gaome on 2023/7/13.
 //
 
-#ifndef IRBACKENDR5_R5IRTYPE_H
-#define IRBACKENDR5_R5IRTYPE_H
+#ifndef IRBACKENDR5_MIDDLEIRTYPE_H
+#define IRBACKENDR5_MIDDLEIRTYPE_H
 #include <utility>
 #include "../R5Logger.h"
 #include "../R5Def.h"
-namespace R5BE
+namespace MiddleIR
 {
 
-class R5IRType
+class MiddleIRType
 {
 public:
     enum IRType { INT, FLOAT, VOID, ARRAY, POINTER, FUNCTION, LABEL, ZEROINITIALIZER } type;
-    explicit R5IRType(IRType type_)
+    explicit MiddleIRType(IRType type_)
         : type(type_)
     {
     }
-    virtual ~R5IRType() = default;
-    virtual bool operator==(const R5IRType& rhs) const
+    virtual ~MiddleIRType() = default;
+    virtual bool operator==(const MiddleIRType& rhs) const
     {
-        RUNTIME_ERROR("R5IRType::operator== not implemented");
+        RUNTIME_ERROR("MiddleIRType::operator== not implemented");
     }
     [[nodiscard]] inline bool isInt() const { return type == INT; }
     [[nodiscard]] inline bool isFloat() const { return type == FLOAT; }
@@ -32,51 +32,51 @@ public:
     [[nodiscard]] inline bool isLabel() const { return type == LABEL; }
     [[nodiscard]] inline bool isZeroInitializer() const { return type == ZEROINITIALIZER; }
 };
-using SPType = std::shared_ptr<R5IRType>;
+using SPType = std::shared_ptr<MiddleIRType>;
 
-class IntType : public R5IRType
+class IntType : public MiddleIRType
 {
 public:
     int bitWidth = 32;
 
 public:
     IntType()
-        : R5IRType(INT)
+        : MiddleIRType(INT)
     {
     }
     explicit IntType(int bitWidth_)
-        : R5IRType(INT)
+        : MiddleIRType(INT)
         , bitWidth(bitWidth_)
     {
     }
-    bool operator==(const R5IRType& rhs) const override
+    bool operator==(const MiddleIRType& rhs) const override
     {
         if (rhs.type == INT) { return bitWidth == dynamic_cast<const IntType&>(rhs).bitWidth; }
         return false;
     }
 };
 
-class FloatType : public R5IRType
+class FloatType : public MiddleIRType
 {
 public:
     FloatType()
-        : R5IRType(FLOAT)
+        : MiddleIRType(FLOAT)
     {
     }
-    bool operator==(const R5IRType& rhs) const override { return rhs.type == FLOAT; }
+    bool operator==(const MiddleIRType& rhs) const override { return rhs.type == FLOAT; }
 };
 
-class VoidType : public R5IRType
+class VoidType : public MiddleIRType
 {
 public:
     VoidType()
-        : R5IRType(VOID)
+        : MiddleIRType(VOID)
     {
     }
-    bool operator==(const R5IRType& rhs) const override { return rhs.type == VOID; }
+    bool operator==(const MiddleIRType& rhs) const override { return rhs.type == VOID; }
 };
 
-class ArrayType : public R5IRType
+class ArrayType : public MiddleIRType
 {
 private:
 public:
@@ -91,12 +91,12 @@ private:
 
 public:
     ArrayType(int size_, SPType elementType_)
-        : R5IRType(ARRAY)
+        : MiddleIRType(ARRAY)
         , _size(size_)
         , _elementType(std::move(elementType_))
     {
     }
-    bool operator==(const R5IRType& rhs) const override
+    bool operator==(const MiddleIRType& rhs) const override
     {
         if (rhs.type == ARRAY) {
             return _size == dynamic_cast<const ArrayType&>(rhs).getSize() &&
@@ -106,20 +106,20 @@ public:
     }
 };
 
-class PointerType : public R5IRType
+class PointerType : public MiddleIRType
 {
 private:
     SPType _elementType;
 
 public:
     explicit PointerType(SPType elementType_)
-        : R5IRType(POINTER)
+        : MiddleIRType(POINTER)
         , _elementType(std::move(elementType_))
     {
     }
     [[nodiscard]] const SPType& getElementType() const { return _elementType; }
     void setElementType(const SPType& elementType_) { PointerType::_elementType = elementType_; }
-    bool operator==(const R5IRType& rhs) const override
+    bool operator==(const MiddleIRType& rhs) const override
     {
         if (rhs.type == POINTER) {
             return *_elementType == *dynamic_cast<const PointerType&>(rhs).getElementType();
@@ -128,33 +128,33 @@ public:
     }
 };
 
-class LabelType : public R5IRType
+class LabelType : public MiddleIRType
 {
 public:
     LabelType()
-        : R5IRType(LABEL)
+        : MiddleIRType(LABEL)
     {
     }
-    bool operator==(const R5IRType& rhs) const override { return rhs.type == LABEL; }
+    bool operator==(const MiddleIRType& rhs) const override { return rhs.type == LABEL; }
 };
 
-class ZeroInitializerType : public R5IRType
+class ZeroInitializerType : public MiddleIRType
 {
 public:
     ZeroInitializerType()
-        : R5IRType(ZEROINITIALIZER)
+        : MiddleIRType(ZEROINITIALIZER)
     {
     }
-    bool operator==(const R5IRType& rhs) const override { return rhs.type == ZEROINITIALIZER; }
+    bool operator==(const MiddleIRType& rhs) const override { return rhs.type == ZEROINITIALIZER; }
 };
 
-unique_ptr<R5IRType>        makePointer(const SPType& elementType_);
-extern shared_ptr<R5IRType> spVoidType;
-extern shared_ptr<R5IRType> spIntType32;
-extern shared_ptr<R5IRType> spBoolType;
-extern shared_ptr<R5IRType> spFloatType;
-extern shared_ptr<R5IRType> spLabelType;
-extern shared_ptr<R5IRType> spZeroInitializerType;
-}   // namespace R5BE
+unique_ptr<MiddleIRType>        makePointer(const SPType& elementType_);
+extern shared_ptr<MiddleIRType> spVoidType;
+extern shared_ptr<MiddleIRType> spIntType32;
+extern shared_ptr<MiddleIRType> spBoolType;
+extern shared_ptr<MiddleIRType> spFloatType;
+extern shared_ptr<MiddleIRType> spLabelType;
+extern shared_ptr<MiddleIRType> spZeroInitializerType;
+}   // namespace MiddleIR
 
-#endif   // IRBACKENDR5_R5IRTYPE_H
+#endif   // IRBACKENDR5_MIDDLEIRTYPE_H

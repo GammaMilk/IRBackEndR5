@@ -2,17 +2,17 @@
 // Created by gaome on 2023/7/13.
 //
 
-#ifndef IRBACKENDR5_R5IRFUNCDECL_H
-#define IRBACKENDR5_R5IRFUNCDECL_H
+#ifndef IRBACKENDR5_MIDDLEIRFUNCDECL_H
+#define IRBACKENDR5_MIDDLEIRFUNCDECL_H
 #include <utility>
 
-#include "R5IRType.h"
+#include "MiddleIRType.h"
 #include "../R5Def.h"
-#include "R5IRVal.h"
-namespace R5BE
+#include "MiddleIRVal.h"
+namespace MiddleIR
 {
 
-class R5IRFuncDecl : public R5IRVal
+class MiddleIRFuncDecl : public MiddleIRVal
 {
 protected:
     SPType                   _retType;
@@ -20,23 +20,26 @@ protected:
     std::vector<std::string> _params_names;
 
 public:
-    R5IRFuncDecl(
+    MiddleIRFuncDecl(
         SPType                   type_,
         std::string              name_,
         std::vector<SPType>      params_types_,
         std::vector<std::string> params_names_
     )
-        : R5IRVal(make_shared<R5IRType>(R5IRType::FUNCTION))
+        : MiddleIRVal(make_shared<MiddleIRType>(MiddleIRType::FUNCTION))
         , _retType(std::move(type_))
         , _params_types(std::move(params_types_))
         , _params_names(std::move(params_names_))
     {
         _name = std::move(name_);
-        IR_ASSERT(_params_types.size() == _params_names.size(), "params_types.size() != params_names.size()");
+        IR_ASSERT(
+            _params_types.size() == _params_names.size(),
+            "params_types.size() != params_names.size()"
+        );
     }
     [[nodiscard]] const SPType& getRetType() const { return _retType; }
 };
 
-}   // namespace R5BE
+}   // namespace MiddleIR
 
-#endif   // IRBACKENDR5_R5IRFUNCDECL_H
+#endif   // IRBACKENDR5_MIDDLEIRFUNCDECL_H

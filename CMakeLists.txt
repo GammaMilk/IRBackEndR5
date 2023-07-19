@@ -19,15 +19,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 # add source files like CBaseListener.cpp, CBaseVisitor.cpp, etc.
 file(GLOB SRC_LIST ${PROJECT_SOURCE_DIR}/*.cpp)
 
-add_executable(${PROJECT_NAME} ${SRC_LIST} R5Logger.h R5VisitorGenIRTree.cpp R5VisitorGenIRTree.h R5Builder.cpp R5Builder.h R5IR/R5IRAST.cpp R5IR/R5IRAST.h R5IR/R5IRType.cpp R5IR/R5IRType.h R5Def.h R5Global.cpp R5Global.h R5IR/R5IRInst.cpp R5IR/R5IRInst.h R5IR/R5IRFuncDef.cpp R5IR/R5IRFuncDef.h R5IR/R5IRFuncDecl.cpp R5IR/R5IRFuncDecl.h R5IR/R5IRGlobalVar.h R5IR/R5IRGlobalConst.h R5Inst.cpp R5Inst.h R5ASMProgram.cpp R5ASMProgram.h R5IR/R5IRBasicBlock.cpp R5IR/R5IRBasicBlock.h R5IR/R5IRVal.cpp R5IR/R5IRVal.h R5IR/R5IRBrInst.h)
+add_executable(${PROJECT_NAME} ${SRC_LIST} R5Logger.h MiddleIR/GenIRAST.cpp MiddleIR/GenIRAST.h R5Builder.cpp R5Builder.h MiddleIR/MiddleIRAST.cpp MiddleIR/MiddleIRAST.h MiddleIR/MiddleIRType.cpp MiddleIR/MiddleIRType.h R5Def.h MiddleIR/MiddleIRInst.cpp MiddleIR/MiddleIRInst.h MiddleIR/MiddleIRFuncDef.cpp MiddleIR/MiddleIRFuncDef.h MiddleIR/MiddleIRFuncDecl.cpp MiddleIR/MiddleIRFuncDecl.h R5ASMProgram.cpp R5ASMProgram.h MiddleIR/MiddleIRBasicBlock.cpp MiddleIR/MiddleIRBasicBlock.h MiddleIR/MiddleIRVal.cpp MiddleIR/MiddleIRVal.h MiddleIR/MiddleIRBrInst.h MiddleOpt/IROptimizer.cpp MiddleOpt/IROptimizer.h MiddleOpt/IROptimizerBase.cpp MiddleOpt/IROptimizerBase.h MiddleOpt/NoneOptimizer.cpp MiddleOpt/NoneOptimizer.h MiddleOpt/RedundantLoadEliminationOptimizer.cpp MiddleOpt/RedundantLoadEliminationOptimizer.h R5Emitter/R5Program.cpp R5Emitter/R5Program.h R5Emitter/R5IREmitter.h R5Emitter/R5IREmitter.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC /usr/local/include/antlr4-runtime)
 target_link_libraries(${PROJECT_NAME} antlr4-runtime)
 target_link_libraries(${PROJECT_NAME} Threads::Threads)
-if(WIN32)
+if (WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy
             "F:/Downloads/antlr4-cpp-runtime-4.13.0-source/cmake-build-debug-gcc112/runtime/libantlr4-runtime.dll"
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
             COMMENT "Copying libantlr4-runtime.dll to executable directory"
             )
-endif()
+endif ()

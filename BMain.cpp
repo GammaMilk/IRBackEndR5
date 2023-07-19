@@ -22,7 +22,9 @@
 #include "tree/ParseTree.h"
 
 #include "R5Logger.h"
-#include "R5VisitorGenIRTree.h"
+#include "MiddleOpt/IROptimizer.h"
+#include "R5Emitter/R5IREmitter.h"
+#include "MiddleIR/GenIRAST.h"
 
 using namespace antlrcpp;
 using namespace antlr4;
@@ -31,6 +33,9 @@ using std::endl;
 using tree::ErrorNode;
 using tree::ParseTree;
 using tree::TerminalNode;
+
+using namespace MiddleIR;
+using MiddleIR::Optimizer::IROptimizer;
 
 int main(int argc, const char** argv)
 {
@@ -56,15 +61,25 @@ int main(int argc, const char** argv)
     }
     LOGD("File Fine." << inputFileName);
 
-
-    ANTLRInputStream input(inputStream);
-    LLVMIRLexer lexer(&input);
+    // parse IR AST
+    ANTLRInputStream  input(inputStream);
+    LLVMIRLexer       lexer(&input);
     CommonTokenStream tokens(&lexer);
-    LLVMIRParser parser(&tokens);
-    tree::ParseTree* tree = parser.compilationUnit();
-    auto visitor = new R5BE::R5VisitorGenIRTree();
+    LLVMIRParser      parser(&tokens);
+    tree::ParseTree*  tree    = parser.compilationUnit();
+    auto              visitor = new MiddleIR::GenIRAST;
     tree->accept(visitor);
 
+    // Optimizer
+    auto irAST = visitor->getAST();
+    auto     SPCopiedAST = make_shared<MiddleIRAST>(irAST);
+    uint64_t opt = IROptimizer::REDUNDANT_LOAD_ELIMINATION;
+    IROptimizer optimizer(SPCopiedAST, static_cast<IROptimizer::ENABLED_OPT>(opt));
+    optimizer.run();
+
+    // Emitter
+    auto emitter = new R5Emitter::R5IREmitter(SPCopiedAST);
+    emitter->build(outputStream);
     outputStream.close();
     return 0;
 }

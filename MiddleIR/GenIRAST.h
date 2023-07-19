@@ -2,15 +2,15 @@
 // Created by gaome on 2023/7/13.
 //
 
-#ifndef IRBACKENDR5_R5VISITORGENIRTREE_H
-#define IRBACKENDR5_R5VISITORGENIRTREE_H
+#ifndef IRBACKENDR5_GENIRAST_H
+#define IRBACKENDR5_GENIRAST_H
 #include <antlr4-common.h>
-#include "LLVMIRVisitor.h"
-#include "R5IR/R5IRAST.h"
-namespace R5BE
+#include "../LLVMIRVisitor.h"
+#include "MiddleIRAST.h"
+namespace MiddleIR
 {
 
-class R5VisitorGenIRTree : public LLVMIRVisitor
+class GenIRAST : public LLVMIRVisitor
 {
 public:
     std::any visitCompilationUnit(LLVMIRParser::CompilationUnitContext* context) override;
@@ -221,19 +221,19 @@ public:
     std::any visitFPred(LLVMIRParser::FPredContext* context) override;
 
 private:
-    R5IRAST m_irast;
+    MiddleIRAST m_irast;
 
     // in-class private variables for building AST
     SPType                     lastType;
-    unique_ptr<R5IRBasicBlock> lastBB;
-    shared_ptr<R5IRInst>       lastInst;
-    shared_ptr<R5IRVal>        lastVal;
-    shared_ptr<R5IRFuncDef>    thisFunc;
+    unique_ptr<MiddleIRBasicBlock> lastBB;
+    shared_ptr<MiddleIRInst>       lastInst;
+    shared_ptr<MiddleIRVal>        lastVal;
+    shared_ptr<MiddleIRFuncDef>    thisFunc;
 
 public:
-    [[nodiscard]] const R5IRAST& getAST() const;
+    [[nodiscard]] const MiddleIRAST& getAST() const;
 };
 
-}   // namespace R5BE
+}   // namespace MiddleIR
 
-#endif   // IRBACKENDR5_R5VISITORGENIRTREE_H
+#endif   // IRBACKENDR5_GENIRAST_H

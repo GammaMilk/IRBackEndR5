@@ -5,13 +5,13 @@
 #ifndef IRBACKENDR5_R5ASMPROGRAM_H
 #define IRBACKENDR5_R5ASMPROGRAM_H
 
-namespace R5BE
+namespace MiddleIR
 {
 
 class R5ASMProgram
 {
 };
 
-}   // namespace R5BE
+}   // namespace MiddleIR
 
 #endif   // IRBACKENDR5_R5ASMPROGRAM_H

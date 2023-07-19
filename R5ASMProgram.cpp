@@ -4,6 +4,6 @@
 
 #include "R5ASMProgram.h"
 
-namespace R5BE
+namespace MiddleIR
 {
-}   // namespace R5BE
+}   // namespace MiddleIR

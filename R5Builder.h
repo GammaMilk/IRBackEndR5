@@ -5,13 +5,13 @@
 #ifndef IRBACKENDR5_R5BUILDER_H
 #define IRBACKENDR5_R5BUILDER_H
 
-namespace R5BE
+namespace MiddleIR
 {
 
 class R5Builder
 {
 };
 
-}   // namespace R5BE
+}   // namespace MiddleIR
 
 #endif   // IRBACKENDR5_R5BUILDER_H

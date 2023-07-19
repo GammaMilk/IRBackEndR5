@@ -2,39 +2,69 @@
 // Created by gaome on 2023/7/13.
 //
 
-#include "R5VisitorGenIRTree.h"
-#include "R5Logger.h"
-#include "R5IR/R5IRBrInst.h"
+#include "GenIRAST.h"
+#include "../R5Logger.h"
+#include "MiddleIRBrInst.h"
 
 #define R5IRVISITOR_VISITING_DEBUG
 
-namespace R5BE
+namespace MiddleIR
 {
-std::any R5VisitorGenIRTree::visitCompilationUnit(LLVMIRParser::CompilationUnitContext* context)
-{
-    // just visit children
-    return visitChildren(context);
-}
-std::any R5VisitorGenIRTree::visitTopLevelEntity(LLVMIRParser::TopLevelEntityContext* context)
+std::any GenIRAST::visitCompilationUnit(LLVMIRParser::CompilationUnitContext* context)
 {
     // just visit children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitGlobalDecl(LLVMIRParser::GlobalDeclContext* context)
+std::any GenIRAST::visitTopLevelEntity(LLVMIRParser::TopLevelEntityContext* context)
 {
+    // just visit children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitGlobalDef(LLVMIRParser::GlobalDefContext* context)
+std::any GenIRAST::visitGlobalDecl(LLVMIRParser::GlobalDeclContext* context)
 {
-    // TODO after global var/const is implemented
-    return visitChildren(context);
+    RUNTIME_ERROR("GlobalDecl is not supported yet!");
 }
-std::any R5VisitorGenIRTree::visitImmutable(LLVMIRParser::ImmutableContext* context)
+/// globalDef:
+///	GlobalIdent '='  immutable type constant;
+/// \param context
+/// \return
+std::any GenIRAST::visitGlobalDef(LLVMIRParser::GlobalDefContext* context)
 {
-    // TODO after global var/const is implemented
-    return visitChildren(context);
+    // name
+    string globalName = context->GlobalIdent()->getText();
+    // global/const
+    auto imm = std::any_cast<string>(context->immutable()->accept(this));
+    bool isConst = imm == "const";
+    // type
+    context->type()->accept(this);
+    auto globalType = lastType;
+    // val
+    context->constant()->accept(this);
+    auto globalVal = std::move(lastVal);
+    if(globalVal->getType()->type== MiddleIRType::ZEROINITIALIZER && globalType->isArray()) {
+        globalVal = make_shared<R5IRArray>(globalType, vector<shared_ptr<MiddleIRVal>>());
+    }
+
+    // settings for global var/const
+    globalVal->setName(globalName);
+    globalVal->setConst(isConst);
+
+    if(isConst){
+        m_irast.globalConsts.emplace_back(globalVal);
+    } else {
+        m_irast.globalVars.emplace_back(globalVal);
+    }
+    return 0;
 }
-std::any R5VisitorGenIRTree::visitFuncDecl(LLVMIRParser::FuncDeclContext* context)
+
+///
+/// \param context
+/// \return std::any which is string
+std::any GenIRAST::visitImmutable(LLVMIRParser::ImmutableContext* context)
+{
+    return context->getText();
+}
+std::any GenIRAST::visitFuncDecl(LLVMIRParser::FuncDeclContext* context)
 {
     auto   funcHeader = context->funcHeader();
     SPType funcRetType;
@@ -56,7 +86,7 @@ std::any R5VisitorGenIRTree::visitFuncDecl(LLVMIRParser::FuncDeclContext* contex
         }
     }
     auto funcDecl =
-        make_shared<R5IRFuncDecl>(funcRetType, funcName, funcParamsTypes, funcParamsNames);
+        make_shared<MiddleIRFuncDecl>(funcRetType, funcName, funcParamsTypes, funcParamsNames);
     m_irast.funcDecls.push_back(funcDecl);
     return 0;
 }
@@ -64,7 +94,7 @@ std::any R5VisitorGenIRTree::visitFuncDecl(LLVMIRParser::FuncDeclContext* contex
 ///	'define' funcHeader funcBody;//函数定义
 /// \param context
 /// \return
-std::any R5VisitorGenIRTree::visitFuncDef(LLVMIRParser::FuncDefContext* context)
+std::any GenIRAST::visitFuncDef(LLVMIRParser::FuncDefContext* context)
 {
     auto   funcHeader = context->funcHeader();
     SPType funcRetType;
@@ -85,12 +115,12 @@ std::any R5VisitorGenIRTree::visitFuncDef(LLVMIRParser::FuncDefContext* context)
             funcParamsNames.push_back(param->LocalIdent()->getText());
         }
     }
-    auto irFuncDef = make_shared<R5IRFuncDef>(
+    auto irFuncDef = make_shared<MiddleIRFuncDef>(
         funcRetType,
         funcName,
         funcParamsTypes,
         funcParamsNames,
-        vector<shared_ptr<R5IRBasicBlock>>()
+        vector<shared_ptr<MiddleIRBasicBlock>>()
     );
 
     thisFunc = irFuncDef;
@@ -123,23 +153,23 @@ std::any R5VisitorGenIRTree::visitFuncDef(LLVMIRParser::FuncDefContext* context)
 
     return 0;
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitFuncHeader(LLVMIRParser::FuncHeaderContext* context
+[[deprecated]] std::any GenIRAST::visitFuncHeader(LLVMIRParser::FuncHeaderContext* context
 )
 {
     // No need. FuncHeader need to be handled in visitFuncDecl and visitFuncDef
     return nullptr;
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitFuncBody(LLVMIRParser::FuncBodyContext* context)
+[[deprecated]] std::any GenIRAST::visitFuncBody(LLVMIRParser::FuncBodyContext* context)
 {
     // no need. FuncBody need to be handled in visitFuncDef
     return nullptr;
 }
-std::any R5VisitorGenIRTree::visitBasicBlock(LLVMIRParser::BasicBlockContext* context)
+std::any GenIRAST::visitBasicBlock(LLVMIRParser::BasicBlockContext* context)
 {
     auto labelName = context->LabelIdent()->getText();
     // cut the last ":"
     labelName = labelName.substr(0, labelName.size() - 1);
-    auto ubb  = std::make_unique<R5IRBasicBlock>(labelName);
+    auto ubb  = std::make_unique<MiddleIRBasicBlock>(labelName);
     for (auto inst : context->instruction()) {
         inst->accept(this);
         auto i = std::move(lastInst);
@@ -152,7 +182,7 @@ std::any R5VisitorGenIRTree::visitBasicBlock(LLVMIRParser::BasicBlockContext* co
     lastBB = std::move(ubb);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitInstruction(LLVMIRParser::InstructionContext* context)
+std::any GenIRAST::visitInstruction(LLVMIRParser::InstructionContext* context)
 {
     // handle all instruction here and store instruction into lastInst.
     // instructions will be add into basicBlock in visitBasicBlock
@@ -170,18 +200,17 @@ std::any R5VisitorGenIRTree::visitInstruction(LLVMIRParser::InstructionContext* 
     }
     return 0;
 }
-std::any R5VisitorGenIRTree::visitTerminator(LLVMIRParser::TerminatorContext* context)
+std::any GenIRAST::visitTerminator(LLVMIRParser::TerminatorContext* context)
 {
     // just visit Children.
     return visitChildren(context);
 }
-[[deprecated]] std::any
-R5VisitorGenIRTree::visitLocalDefInst(LLVMIRParser::LocalDefInstContext* context)
+[[deprecated]] std::any GenIRAST::visitLocalDefInst(LLVMIRParser::LocalDefInstContext* context)
 {
     // no need. LocalDefInst handled in visitInstruction
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitAddInst(LLVMIRParser::AddInstContext* context)
+std::any GenIRAST::visitAddInst(LLVMIRParser::AddInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -193,7 +222,7 @@ std::any R5VisitorGenIRTree::visitAddInst(LLVMIRParser::AddInstContext* context)
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFaddInst(LLVMIRParser::FaddInstContext* context)
+std::any GenIRAST::visitFaddInst(LLVMIRParser::FaddInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -205,7 +234,7 @@ std::any R5VisitorGenIRTree::visitFaddInst(LLVMIRParser::FaddInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitSubInst(LLVMIRParser::SubInstContext* context)
+std::any GenIRAST::visitSubInst(LLVMIRParser::SubInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -217,7 +246,7 @@ std::any R5VisitorGenIRTree::visitSubInst(LLVMIRParser::SubInstContext* context)
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFsubInst(LLVMIRParser::FsubInstContext* context)
+std::any GenIRAST::visitFsubInst(LLVMIRParser::FsubInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -229,7 +258,7 @@ std::any R5VisitorGenIRTree::visitFsubInst(LLVMIRParser::FsubInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitMulInst(LLVMIRParser::MulInstContext* context)
+std::any GenIRAST::visitMulInst(LLVMIRParser::MulInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -241,7 +270,7 @@ std::any R5VisitorGenIRTree::visitMulInst(LLVMIRParser::MulInstContext* context)
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFmulInst(LLVMIRParser::FmulInstContext* context)
+std::any GenIRAST::visitFmulInst(LLVMIRParser::FmulInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -253,7 +282,7 @@ std::any R5VisitorGenIRTree::visitFmulInst(LLVMIRParser::FmulInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitUdivInst(LLVMIRParser::UdivInstContext* context)
+std::any GenIRAST::visitUdivInst(LLVMIRParser::UdivInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -265,7 +294,7 @@ std::any R5VisitorGenIRTree::visitUdivInst(LLVMIRParser::UdivInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitSdivInst(LLVMIRParser::SdivInstContext* context)
+std::any GenIRAST::visitSdivInst(LLVMIRParser::SdivInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -277,7 +306,7 @@ std::any R5VisitorGenIRTree::visitSdivInst(LLVMIRParser::SdivInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFdivInst(LLVMIRParser::FdivInstContext* context)
+std::any GenIRAST::visitFdivInst(LLVMIRParser::FdivInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -289,7 +318,7 @@ std::any R5VisitorGenIRTree::visitFdivInst(LLVMIRParser::FdivInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitUremInst(LLVMIRParser::UremInstContext* context)
+std::any GenIRAST::visitUremInst(LLVMIRParser::UremInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -301,7 +330,7 @@ std::any R5VisitorGenIRTree::visitUremInst(LLVMIRParser::UremInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitSremInst(LLVMIRParser::SremInstContext* context)
+std::any GenIRAST::visitSremInst(LLVMIRParser::SremInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -313,7 +342,7 @@ std::any R5VisitorGenIRTree::visitSremInst(LLVMIRParser::SremInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFremInst(LLVMIRParser::FremInstContext* context)
+std::any GenIRAST::visitFremInst(LLVMIRParser::FremInstContext* context)
 {
     context->concreteType()->accept(this);
     auto type = std::move(lastType);
@@ -325,62 +354,62 @@ std::any R5VisitorGenIRTree::visitFremInst(LLVMIRParser::FremInstContext* contex
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitMathInstruction_(LLVMIRParser::MathInstruction_Context* context)
+std::any GenIRAST::visitMathInstruction_(LLVMIRParser::MathInstruction_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitAllocaInst_(LLVMIRParser::AllocaInst_Context* context)
+std::any GenIRAST::visitAllocaInst_(LLVMIRParser::AllocaInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitLoadInst_(LLVMIRParser::LoadInst_Context* context)
+std::any GenIRAST::visitLoadInst_(LLVMIRParser::LoadInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitGEPInst_(LLVMIRParser::GEPInst_Context* context)
+std::any GenIRAST::visitGEPInst_(LLVMIRParser::GEPInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitZExtInst_(LLVMIRParser::ZExtInst_Context* context)
+std::any GenIRAST::visitZExtInst_(LLVMIRParser::ZExtInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitSExtInst_(LLVMIRParser::SExtInst_Context* context)
+std::any GenIRAST::visitSExtInst_(LLVMIRParser::SExtInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitSiToFpInst_(LLVMIRParser::SiToFpInst_Context* context)
+std::any GenIRAST::visitSiToFpInst_(LLVMIRParser::SiToFpInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitFpToSiInst_(LLVMIRParser::FpToSiInst_Context* context)
+std::any GenIRAST::visitFpToSiInst_(LLVMIRParser::FpToSiInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitBitCastInst_(LLVMIRParser::BitCastInst_Context* context)
+std::any GenIRAST::visitBitCastInst_(LLVMIRParser::BitCastInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitICmpInst_(LLVMIRParser::ICmpInst_Context* context)
+std::any GenIRAST::visitICmpInst_(LLVMIRParser::ICmpInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitFCmpInst_(LLVMIRParser::FCmpInst_Context* context)
+std::any GenIRAST::visitFCmpInst_(LLVMIRParser::FCmpInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitCallInst_(LLVMIRParser::CallInst_Context* context)
+std::any GenIRAST::visitCallInst_(LLVMIRParser::CallInst_Context* context)
 {
     // handled in children
     return visitChildren(context);
@@ -388,7 +417,7 @@ std::any R5VisitorGenIRTree::visitCallInst_(LLVMIRParser::CallInst_Context* cont
 /// 	'store' concreteType value ',' concreteType value;
 /// \param context
 /// \return
-std::any R5VisitorGenIRTree::visitStoreInst(LLVMIRParser::StoreInstContext* context)
+std::any GenIRAST::visitStoreInst(LLVMIRParser::StoreInstContext* context)
 {
     context->concreteType(0)->accept(this);
     auto typeFrom = lastType;
@@ -402,7 +431,7 @@ std::any R5VisitorGenIRTree::visitStoreInst(LLVMIRParser::StoreInstContext* cont
     lastInst = MU<StoreInst>(std::move(valueFrom), std::move(valueTo));
     return 0;
 }
-std::any R5VisitorGenIRTree::visitAllocaInst(LLVMIRParser::AllocaInstContext* context)
+std::any GenIRAST::visitAllocaInst(LLVMIRParser::AllocaInstContext* context)
 {
     context->type()->accept(this);
     lastInst = MU<AllocaInst>("", lastType);
@@ -411,7 +440,7 @@ std::any R5VisitorGenIRTree::visitAllocaInst(LLVMIRParser::AllocaInstContext* co
 /// 	'load' type ',' concreteType value;
 /// \param context
 /// \return
-std::any R5VisitorGenIRTree::visitLoadInst(LLVMIRParser::LoadInstContext* context)
+std::any GenIRAST::visitLoadInst(LLVMIRParser::LoadInstContext* context)
 {
     context->type()->accept(this);
     auto type = lastType;
@@ -426,7 +455,7 @@ std::any R5VisitorGenIRTree::visitLoadInst(LLVMIRParser::LoadInstContext* contex
     lastInst = MU<LoadInst>(std::move(value), type);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitGetElementPtrInst(LLVMIRParser::GetElementPtrInstContext* context)
+std::any GenIRAST::visitGetElementPtrInst(LLVMIRParser::GetElementPtrInstContext* context)
 {
     // 'getelementptr'  type ',' concreteType value (',' concreteType value)*;
     //   %v4 = getelementptr [3 x i32], [3 x i32]* %v3, i32 114, i32 1
@@ -450,12 +479,12 @@ std::any R5VisitorGenIRTree::visitGetElementPtrInst(LLVMIRParser::GetElementPtrI
         pointers.emplace_back(DPC(R5IRValConstInt, val)->getValue());
     }
 
-    // GetElementPtrInst(SPType type1, SPType fromType, shared_ptr<R5IRVal> from, vector<int> index)
+    // GetElementPtrInst(SPType type1, SPType fromType, shared_ptr<MiddleIRVal> from, vector<int> index)
     auto inst = MU<GetElementPtrInst>(type, fromType, std::move(fromVal), std::move(pointers));
     lastInst  = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitBitCastInst(LLVMIRParser::BitCastInstContext* context)
+std::any GenIRAST::visitBitCastInst(LLVMIRParser::BitCastInstContext* context)
 {
     // 'bitcast' concreteType value 'to' type;
     context->concreteType()->accept(this);
@@ -468,7 +497,7 @@ std::any R5VisitorGenIRTree::visitBitCastInst(LLVMIRParser::BitCastInstContext* 
     lastInst    = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitZExtInst(LLVMIRParser::ZExtInstContext* context)
+std::any GenIRAST::visitZExtInst(LLVMIRParser::ZExtInstContext* context)
 {
     // concreteType value 'to' type;
     context->concreteType()->accept(this);
@@ -483,7 +512,7 @@ std::any R5VisitorGenIRTree::visitZExtInst(LLVMIRParser::ZExtInstContext* contex
     lastInst = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitSExtInst(LLVMIRParser::SExtInstContext* context)
+std::any GenIRAST::visitSExtInst(LLVMIRParser::SExtInstContext* context)
 {
     context->concreteType()->accept(this);
     auto typeFrom = lastType;
@@ -497,7 +526,7 @@ std::any R5VisitorGenIRTree::visitSExtInst(LLVMIRParser::SExtInstContext* contex
     lastInst = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitSiToFpInst(LLVMIRParser::SiToFpInstContext* context)
+std::any GenIRAST::visitSiToFpInst(LLVMIRParser::SiToFpInstContext* context)
 {
     context->concreteType()->accept(this);
     auto typeFrom = lastType;
@@ -511,7 +540,7 @@ std::any R5VisitorGenIRTree::visitSiToFpInst(LLVMIRParser::SiToFpInstContext* co
     lastInst = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFpToSiInst(LLVMIRParser::FpToSiInstContext* context)
+std::any GenIRAST::visitFpToSiInst(LLVMIRParser::FpToSiInstContext* context)
 {
     context->concreteType()->accept(this);
     auto typeFrom = lastType;
@@ -525,7 +554,7 @@ std::any R5VisitorGenIRTree::visitFpToSiInst(LLVMIRParser::FpToSiInstContext* co
     lastInst = std::move(inst);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitICmpInst(LLVMIRParser::ICmpInstContext* context)
+std::any GenIRAST::visitICmpInst(LLVMIRParser::ICmpInstContext* context)
 {
     // iCmpInst:
     //	'icmp' iPred concreteType value ',' value;
@@ -540,7 +569,7 @@ std::any R5VisitorGenIRTree::visitICmpInst(LLVMIRParser::ICmpInstContext* contex
     lastInst    = MU<ICmpInst>(iCmpOp, type, std::move(value0), std::move(value1));
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFCmpInst(LLVMIRParser::FCmpInstContext* context)
+std::any GenIRAST::visitFCmpInst(LLVMIRParser::FCmpInstContext* context)
 {
     // fCmpInst:
     //	'fcmp' fPred concreteType value ',' value;
@@ -555,7 +584,7 @@ std::any R5VisitorGenIRTree::visitFCmpInst(LLVMIRParser::FCmpInstContext* contex
     lastInst    = MU<FCmpInst>(fCmpOp, type, std::move(value0), std::move(value1));
     return 0;
 }
-std::any R5VisitorGenIRTree::visitCallInst(LLVMIRParser::CallInstContext* context)
+std::any GenIRAST::visitCallInst(LLVMIRParser::CallInstContext* context)
 {
     // callInst:
     //	'call' type value '(' args ')'
@@ -564,22 +593,22 @@ std::any R5VisitorGenIRTree::visitCallInst(LLVMIRParser::CallInstContext* contex
     context->type()->accept(this);
     auto type = lastType;
     context->value()->accept(this);
-    auto                                   func_val = std::move(lastVal);
+    auto func_val = std::move(lastVal);
     IR_ASSERT(func_val->getType()->isFunction(), "callInst: value is not a function");
-    auto func=DPC(R5IRFuncDecl, func_val);
+    auto                                   func = DPC(MiddleIRFuncDecl, func_val);
     auto                                   args = context->args();
-    std::vector<std::shared_ptr<R5IRType>> argTypes;
-    std::vector<std::shared_ptr<R5IRVal>>  argValues;
+    std::vector<std::shared_ptr<MiddleIRType>> argTypes;
+    std::vector<std::shared_ptr<MiddleIRVal>>  argValues;
     for (auto arg : args->arg()) {
         arg->concreteType()->accept(this);
         argTypes.emplace_back(lastType);
         arg->value()->accept(this);
         argValues.emplace_back(std::move(lastVal));
     }
-    lastInst = MU<CallInst>(func, std::move(argValues),func->getRetType());
+    lastInst = MU<CallInst>(func, std::move(argValues), func->getRetType());
     return 0;
 }
-std::any R5VisitorGenIRTree::visitRetTerm(LLVMIRParser::RetTermContext* context)
+std::any GenIRAST::visitRetTerm(LLVMIRParser::RetTermContext* context)
 {
     // not ret void
     if (context->concreteType() != nullptr) {
@@ -598,7 +627,7 @@ std::any R5VisitorGenIRTree::visitRetTerm(LLVMIRParser::RetTermContext* context)
     }
     return 0;
 }
-std::any R5VisitorGenIRTree::visitBrTerm(LLVMIRParser::BrTermContext* context)
+std::any GenIRAST::visitBrTerm(LLVMIRParser::BrTermContext* context)
 {
     auto to = context->label()->LocalIdent()->getText();
     // cut the first "%"
@@ -607,7 +636,7 @@ std::any R5VisitorGenIRTree::visitBrTerm(LLVMIRParser::BrTermContext* context)
     lastInst = std::move(br);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitCondBrTerm(LLVMIRParser::CondBrTermContext* context)
+std::any GenIRAST::visitCondBrTerm(LLVMIRParser::CondBrTermContext* context)
 {
     IR_ASSERT(context->label().size() == 2, "CondBrTermContext should have 2 labels");
     auto toTrue  = context->label()[0]->LocalIdent()->getText();
@@ -622,18 +651,18 @@ std::any R5VisitorGenIRTree::visitCondBrTerm(LLVMIRParser::CondBrTermContext* co
     lastInst  = std::move(br);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFloatType(LLVMIRParser::FloatTypeContext* context)
+std::any GenIRAST::visitFloatType(LLVMIRParser::FloatTypeContext* context)
 {
     auto floatType = std::make_shared<FloatType>();
     lastType       = floatType;
     return floatType;
 }
-std::any R5VisitorGenIRTree::visitConcreteType(LLVMIRParser::ConcreteTypeContext* context)
+std::any GenIRAST::visitConcreteType(LLVMIRParser::ConcreteTypeContext* context)
 {
     // Just visit the children
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitValue(LLVMIRParser::ValueContext* context)
+std::any GenIRAST::visitValue(LLVMIRParser::ValueContext* context)
 {
     if (context->constant()) {
         context->constant()->accept(this);
@@ -648,24 +677,24 @@ std::any R5VisitorGenIRTree::visitValue(LLVMIRParser::ValueContext* context)
     }
     if (context->GlobalIdent()) {
         auto name = context->GlobalIdent()->getText();
-        auto id = getAST().findVal(name);
-        lastVal = std::move(id);
+        auto id   = getAST().findVal(name);
+        lastVal   = std::move(id);
         return 0;
     }
     RUNTIME_ERROR("Unknown value type");
     return visitChildren(context);   // unreachable
 }
-std::any R5VisitorGenIRTree::visitConstant(LLVMIRParser::ConstantContext* context)
+std::any GenIRAST::visitConstant(LLVMIRParser::ConstantContext* context)
 {
     // just visit the children
     return visitChildren(context);
 }
 [[deprecated("BoolConst is not implemented")]] std::any
-R5VisitorGenIRTree::visitBoolConst(LLVMIRParser::BoolConstContext* context)
+GenIRAST::visitBoolConst(LLVMIRParser::BoolConstContext* context)
 {
     return visitChildren(context);
 }
-std::any R5VisitorGenIRTree::visitIntConst(LLVMIRParser::IntConstContext* context)
+std::any GenIRAST::visitIntConst(LLVMIRParser::IntConstContext* context)
 {
     auto intString = context->IntLit()->getText();
     int  base      = 10;
@@ -678,29 +707,41 @@ std::any R5VisitorGenIRTree::visitIntConst(LLVMIRParser::IntConstContext* contex
     lastVal     = std::move(intVal);
     return 0;
 }
-std::any R5VisitorGenIRTree::visitFloatConst(LLVMIRParser::FloatConstContext* context)
+std::any GenIRAST::visitFloatConst(LLVMIRParser::FloatConstContext* context)
 {
-    double num      = std::stod(context->FloatLit()->getText());
-    auto   floatVal = IR_FLOAT_CONST(num);
-    lastVal         = std::move(floatVal);
+    string floatString = context->FloatLit()->getText();
+    // starts with 0x
+    if (floatString.length()>2 && floatString[0] == '0' && (floatString[1] == 'x' || floatString[1] == 'X')) {
+        floatString = floatString.substr(2);
+        uint64_t num = std::stoull(floatString, nullptr, 16);
+        auto     floatVal = IR_FLOAT_CONST(num);
+        lastVal         = std::move(floatVal);
+    } else {
+        double num      = std::stod(context->FloatLit()->getText());
+        auto   floatVal = IR_FLOAT_CONST(num);
+        lastVal         = std::move(floatVal);
+    }
     return 0;
 }
-std::any R5VisitorGenIRTree::visitArrayConst(LLVMIRParser::ArrayConstContext* context)
+std::any GenIRAST::visitArrayConst(LLVMIRParser::ArrayConstContext* context)
 {
     size_t                                size = context->constant().size();
-    std::vector<std::shared_ptr<R5IRVal>> values;
+    std::vector<std::shared_ptr<MiddleIRVal>> values;
     context->concreteType(0)->accept(this);
-    auto type = lastType;
+    auto elemType = lastType;
+    // attention: this TYPE is the elemType of ONE element. DO NOT use this elemType to represent the array
     for (size_t i = 0; i < size; i++) {
         context->concreteType(i)->accept(this);
-        IR_ASSERT(*lastType == *type, "ArrayConst should have the same type");
+        IR_ASSERT(*lastType == *elemType, "ArrayConst should have the same elemType");
         context->constant(i)->accept(this);
         values.push_back(std::move(lastVal));
     }
-    lastVal = std::make_shared<R5IRArray>(type, std::move(values));
+    // guess the elemType of the array
+    auto arrayType = make_shared<ArrayType>(size, elemType);
+    lastVal = std::make_shared<R5IRArray>(arrayType, std::move(values));
     return 0;
 }
-std::any R5VisitorGenIRTree::visitType(LLVMIRParser::TypeContext* context)
+std::any GenIRAST::visitType(LLVMIRParser::TypeContext* context)
 {
     auto typeText = context->getText();
     if (typeText == "void") {
@@ -722,7 +763,7 @@ std::any R5VisitorGenIRTree::visitType(LLVMIRParser::TypeContext* context)
         return lastType;
     }
 }
-std::any R5VisitorGenIRTree::visitIntType(LLVMIRParser::IntTypeContext* context)
+std::any GenIRAST::visitIntType(LLVMIRParser::IntTypeContext* context)
 {
     string type     = context->getText();
     int    bitWidth = 0;
@@ -745,19 +786,19 @@ std::any R5VisitorGenIRTree::visitIntType(LLVMIRParser::IntTypeContext* context)
     lastType     = intType;
     return intType;
 }
-std::any R5VisitorGenIRTree::visitPointerType(LLVMIRParser::PointerTypeContext* context)
+std::any GenIRAST::visitPointerType(LLVMIRParser::PointerTypeContext* context)
 {
     context->type()->accept(this);
     auto ptrType = std::make_shared<PointerType>(lastType);
     lastType     = ptrType;
     return ptrType;
 }
-std::any R5VisitorGenIRTree::visitLabelType(LLVMIRParser::LabelTypeContext* context)
+std::any GenIRAST::visitLabelType(LLVMIRParser::LabelTypeContext* context)
 {
     lastType = std::make_shared<LabelType>();
     return lastType;
 }
-std::any R5VisitorGenIRTree::visitArrayType(LLVMIRParser::ArrayTypeContext* context)
+std::any GenIRAST::visitArrayType(LLVMIRParser::ArrayTypeContext* context)
 {
     size_t size = std::stoi(context->IntLit()->getText());
     context->type()->accept(this);
@@ -765,51 +806,50 @@ std::any R5VisitorGenIRTree::visitArrayType(LLVMIRParser::ArrayTypeContext* cont
     lastType       = std::move(arrayType);
     return 0;
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitNamedType(LLVMIRParser::NamedTypeContext* context)
+[[deprecated]] std::any GenIRAST::visitNamedType(LLVMIRParser::NamedTypeContext* context)
 {
     // [[deprecated]]
     return visitChildren(context);
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitParams(LLVMIRParser::ParamsContext* context)
+[[deprecated]] std::any GenIRAST::visitParams(LLVMIRParser::ParamsContext* context)
 {
     return visitChildren(context);
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitParam(LLVMIRParser::ParamContext* context)
+[[deprecated]] std::any GenIRAST::visitParam(LLVMIRParser::ParamContext* context)
 {
     return visitChildren(context);
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitLabel(LLVMIRParser::LabelContext* context)
+[[deprecated]] std::any GenIRAST::visitLabel(LLVMIRParser::LabelContext* context)
 {
     // handled in visitBrTerm and visitCondBrTerm
     return visitChildren(context);
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitIPred(LLVMIRParser::IPredContext* context)
+[[deprecated]] std::any GenIRAST::visitIPred(LLVMIRParser::IPredContext* context)
 {
     return visitChildren(context);
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitFPred(LLVMIRParser::FPredContext* context)
+[[deprecated]] std::any GenIRAST::visitFPred(LLVMIRParser::FPredContext* context)
 {
     return visitChildren(context);
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitArgs(LLVMIRParser::ArgsContext* context)
+[[deprecated]] std::any GenIRAST::visitArgs(LLVMIRParser::ArgsContext* context)
 {
     return visitChildren(context);
 }
-[[deprecated]] std::any R5VisitorGenIRTree::visitArg(LLVMIRParser::ArgContext* context)
+[[deprecated]] std::any GenIRAST::visitArg(LLVMIRParser::ArgContext* context)
 {
     return visitChildren(context);
 }
-std::any
-R5VisitorGenIRTree::visitZeroInitializerConst(LLVMIRParser::ZeroInitializerConstContext* context)
+std::any GenIRAST::visitZeroInitializerConst(LLVMIRParser::ZeroInitializerConstContext* context)
 {
     lastVal = std::make_shared<R5IRZeroInitializerVal>();
     return 0;
 }
 
-const R5IRAST& R5VisitorGenIRTree::getAST() const
+const MiddleIRAST& GenIRAST::getAST() const
 {
     return m_irast;
 }
-}   // namespace R5BE
+}   // namespace MiddleIR
 
 #undef R5IRVISITOR_VISITING_DEBUG

@@ -2,44 +2,56 @@
 // Created by gaome on 2023/7/14.
 //
 
-#ifndef IRBACKENDR5_R5IRVAL_H
-#define IRBACKENDR5_R5IRVAL_H
+#ifndef IRBACKENDR5_MIDDLEIRVAL_H
+#define IRBACKENDR5_MIDDLEIRVAL_H
 
 #include <utility>
+#include <ostream>
 
-#include "R5IRType.h"
-namespace R5BE
+#include "MiddleIRType.h"
+namespace MiddleIR
 {
 
-class R5IRVal
+class MiddleIRVal
 {
 public:
-    R5IRVal()          = default;
-    virtual ~R5IRVal() = default;
+    MiddleIRVal()          = default;
+    virtual ~MiddleIRVal() = default;
 
 protected:
     SPType _type;
     string _name;
+    bool _const = false;
 
 public:
-    explicit R5IRVal(SPType type)
+    [[nodiscard]] bool isConst() const { return _const; }
+    void setConst(bool const_) { _const = const_; }
+
+public:
+    explicit MiddleIRVal(SPType type)
         : _type(std::move(type))
     {
     }
-    R5IRVal(SPType type, string name): _type(std::move(type)), _name(std::move(name)) {}
+    MiddleIRVal(SPType type, string name)
+        : _type(std::move(type))
+        , _name(std::move(name))
+    {
+    }
     [[nodiscard]] virtual const SPType& getType() const { return _type; }
     void                                setType(const SPType& type) { _type = type; }
     [[nodiscard]] virtual const string& getName() const { return _name; }
     void                                setName(const string& name) { _name = name; }
 };
 
-class R5IRValConst : public R5IRVal
+class R5IRValConst : public MiddleIRVal
 {
 public:
     explicit R5IRValConst(SPType type_)
-        : R5IRVal(std::move(type_))
+        : MiddleIRVal(std::move(type_))
     {
+        setConst(true);
     }
+
 };
 
 class R5IRValConstInt : public R5IRValConst
@@ -51,6 +63,9 @@ public:
     {
     }
     [[nodiscard]] bool needLUI() const { return _value > 0x7fff || _value < -0x8000; }
+    [[nodiscard]] bool isZero() const { return _value == 0; }
+    [[nodiscard]] bool inBss() const { return isZero(); }
+    [[nodiscard]] int getWord() const { return _value; }
 
 protected:
     int _value;
@@ -78,6 +93,9 @@ public:
         , _value((float)value_)
     {
     }
+    bool isZero() const { return _value == 0; }
+    bool inBss() const { return isZero(); }
+    uint32_t getWord() const { return *(uint32_t*)&_value; }
 
 protected:
     float _value;
@@ -87,33 +105,36 @@ public:
 };
 #define IR_FLOAT_CONST(_VAL) std::make_shared<R5IRValConstFloat>(_VAL)
 
-class R5IRArray : public R5IRVal
+class R5IRArray : public MiddleIRVal
 {
 public:
-    R5IRArray(SPType type_, vector<shared_ptr<R5IRVal>> elements_)
-        : R5IRVal(std::move(type_))
+    R5IRArray(SPType type_, vector<shared_ptr<MiddleIRVal>> elements_)
+        : MiddleIRVal(std::move(type_))
         , _elements(std::move(elements_))
     {
-        IR_ASSERT(_type->type == R5IRType::ARRAY, "R5IRArray::R5IRArray: type must be ARRAY");
+        IR_ASSERT(_type->type == MiddleIRType::ARRAY, "R5IRArray::R5IRArray: type must be ARRAY");
+        if(empty()) return ;
         IR_ASSERT(
             _elements.size() == dynamic_cast<ArrayType*>(_type.get())->getSize(),
             "R5IRArray::R5IRArray: size not match"
         );
     }
+    [[nodiscard]] inline bool empty() const {return _elements.empty();}
+
 
 protected:
-    vector<shared_ptr<R5IRVal>> _elements;
+    vector<shared_ptr<MiddleIRVal>> _elements;
 };
 
-class R5IRZeroInitializerVal : public R5IRVal
+class R5IRZeroInitializerVal : public MiddleIRVal
 {
 public:
     explicit R5IRZeroInitializerVal()
-        : R5IRVal(std::move(spZeroInitializerType))
+        : MiddleIRVal(std::move(spZeroInitializerType))
     {
     }
 };
 
-}   // namespace R5BE
+}   // namespace MiddleIR
 
-#endif   // IRBACKENDR5_R5IRVAL_H
+#endif   // IRBACKENDR5_MIDDLEIRVAL_H
