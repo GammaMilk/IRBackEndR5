@@ -9,6 +9,7 @@
 #include "MiddleIRVal.h"
 #include "MiddleIRBasicBlock.h"
 #include "MiddleIRFuncDecl.h"
+#include "MiddleIRBrInst.h"
 #include <unordered_map>
 namespace MiddleIR
 {
@@ -22,10 +23,10 @@ private:
 
 public:
     MiddleIRFuncDef(
-        SPType                                       type_,
-        std::string                                  name_,
-        std::vector<SPType>                          params_types_,
-        std::vector<std::string>                     params_names_,
+        SPType                                           type_,
+        std::string                                      name_,
+        std::vector<SPType>                              params_types_,
+        std::vector<std::string>                         params_names_,
         std::vector<std::shared_ptr<MiddleIRBasicBlock>> basicBlocks_
     )
         : MiddleIRFuncDecl(
@@ -34,7 +35,9 @@ public:
         , _basicBlocks(std::move(basicBlocks_))
     {
         for (int i = 0; i < _params_names.size(); i++) {
-            addVal(_params_names[i], std::make_shared<MiddleIRVal>(_params_types[i], _params_names[i]));
+            addVal(
+                _params_names[i], std::make_shared<MiddleIRVal>(_params_types[i], _params_names[i])
+            );
         }
     }
     void addBasicBlock(const std::shared_ptr<MiddleIRBasicBlock>& basicBlock_)
@@ -54,7 +57,8 @@ public:
     {
         _valMap[name_] = val_;
     }
-    [[nodiscard]] const std::unordered_map<std::string, std::shared_ptr<MiddleIRVal>>& getValMap() const
+    [[nodiscard]] const std::unordered_map<std::string, std::shared_ptr<MiddleIRVal>>& getValMap(
+    ) const
     {
         return _valMap;
     }
@@ -66,6 +70,18 @@ public:
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getVal(const std::string& name_) const
     {
         return _valMap.at(name_);
+    }
+    void buildBBPrevNext()
+    {
+        for (const auto& bb : this->_basicBlocks) {
+            auto ter = bb->getTerminator();
+            if (ter->isBrInst()) {
+                auto br = std::dynamic_pointer_cast<BrInst>(ter);
+                br->getIfTrue()->addPrev(bb);
+                if (br->getIfFalse()) { br->getIfFalse()->addPrev(bb); }
+                bb->addNext(br->getIfTrue());
+            }
+        }
     }
 };
 

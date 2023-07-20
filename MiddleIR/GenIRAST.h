@@ -224,7 +224,7 @@ private:
     MiddleIRAST m_irast;
 
     // in-class private variables for building AST
-    SPType                     lastType;
+    SPType                         lastType;
     unique_ptr<MiddleIRBasicBlock> lastBB;
     shared_ptr<MiddleIRInst>       lastInst;
     shared_ptr<MiddleIRVal>        lastVal;

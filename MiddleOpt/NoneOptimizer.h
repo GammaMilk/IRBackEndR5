@@ -9,13 +9,14 @@
 namespace MiddleIR::Optimizer
 {
 
-class NoneOptimizer:public IROptimizerBase
+class NoneOptimizer : public IROptimizerBase
 {
 public:
-    explicit NoneOptimizer(shared_ptr<MiddleIRAST> irast):IROptimizerBase(std::move(irast)){};
+    explicit NoneOptimizer(shared_ptr<MiddleIRAST> irast)
+        : IROptimizerBase(std::move(irast)){};
     void run() override;
 };
 
-}   // namespace MiddleIR
+}   // namespace MiddleIR::Optimizer
 
 #endif   // IRBACKENDR5_NONEOPTIMIZER_H

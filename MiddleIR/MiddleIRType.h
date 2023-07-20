@@ -13,7 +13,17 @@ namespace MiddleIR
 class MiddleIRType
 {
 public:
-    enum IRType { INT, FLOAT, VOID, ARRAY, POINTER, FUNCTION, LABEL, ZEROINITIALIZER } type;
+    enum IRType {
+        UNKNOWN,
+        INT,
+        FLOAT,
+        VOID,
+        ARRAY,
+        POINTER,
+        FUNCTION,
+        LABEL,
+        ZEROINITIALIZER
+    } type;
     explicit MiddleIRType(IRType type_)
         : type(type_)
     {
@@ -79,15 +89,9 @@ public:
 class ArrayType : public MiddleIRType
 {
 private:
-public:
-    [[nodiscard]] int           getSize() const { return _size; }
-    void                        setSize(int size_) { ArrayType::_size = size_; }
-    [[nodiscard]] const SPType& getElementType() const { return _elementType; }
-    void setElementType(const SPType& elementType_) { ArrayType::_elementType = elementType_; }
-
-private:
     int    _size;
     SPType _elementType;
+    IRType _atomElemType = UNKNOWN;
 
 public:
     ArrayType(int size_, SPType elementType_)
@@ -103,6 +107,41 @@ public:
                    *_elementType == *dynamic_cast<const ArrayType&>(rhs).getElementType();
         }
         return false;
+    }
+
+public:
+    [[nodiscard]] int           getSize() const { return _size; }
+    void                        setSize(int size_) { ArrayType::_size = size_; }
+    [[nodiscard]] const SPType& getElementType() const { return _elementType; }
+    void setElementType(const SPType& elementType_) { ArrayType::_elementType = elementType_; }
+
+public:
+    [[nodiscard]] size_t getSizeBytes() const
+    {
+        if (_elementType->isInt()) {
+            return _size * dynamic_cast<IntType*>(_elementType.get())->bitWidth / 8;
+        } else if (_elementType->isFloat()) {
+            return _size * 4;
+        } else if (_elementType->isArray()) {
+            return _size * dynamic_cast<ArrayType*>(_elementType.get())->getSizeBytes();
+        } else {
+            RUNTIME_ERROR("ArrayType::getSizeBytes not implemented");
+        }
+    }
+    IRType getAtomElemType()
+    {
+        if (_atomElemType == UNKNOWN) {
+            if (_elementType->isInt()) {
+                _atomElemType = INT;
+            } else if (_elementType->isFloat()) {
+                _atomElemType = FLOAT;
+            } else if (_elementType->isArray()) {
+                _atomElemType = dynamic_cast<ArrayType*>(_elementType.get())->getAtomElemType();
+            } else {
+                RUNTIME_ERROR("ArrayType::getAtomElemType not implemented");
+            }
+        }
+        return _atomElemType;
     }
 };
 

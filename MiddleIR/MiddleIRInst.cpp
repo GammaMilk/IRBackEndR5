@@ -6,26 +6,30 @@
 
 namespace MiddleIR
 {
-[[maybe_unused]] bool MiddleIRInst::tryReplaceUse(std::shared_ptr<MiddleIRVal> oldVal, std::shared_ptr<MiddleIRVal> newVal)
+[[maybe_unused]] bool MiddleIRInst::tryReplaceUse(
+    std::shared_ptr<MiddleIRVal> oldVal, std::shared_ptr<MiddleIRVal> newVal
+)
 {
-        bool replaced = false;
-        for (auto& use : _useList) {
-            if (*use == oldVal) {
-                *use = newVal;
-                replaced = true;
-                LOGD("Replaced "<<(oldVal)->getName()<<" with "<<(newVal)->getName()<<" in "<<getName());
-                break ;
-            }
+    bool replaced = false;
+    for (auto& use : _useList) {
+        if (*use == oldVal) {
+            *use     = newVal;
+            replaced = true;
+            LOGD(
+                "Replaced " << (oldVal)->getName() << " with " << (newVal)->getName() << " in "
+                            << getName()
+            );
+            break;
         }
-        return replaced;
-
+    }
+    return replaced;
 }
 bool MiddleIRInst::isDeleted() const
 {
-        return _deleted;
+    return _deleted;
 }
 void MiddleIRInst::setDeleted(bool deleted)
 {
-        _deleted = deleted;
+    _deleted = deleted;
 }
 }   // namespace MiddleIR

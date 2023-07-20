@@ -9,16 +9,16 @@
 namespace MiddleIR::Optimizer
 {
 
-class RedundantLoadEliminationOptimizer: public IROptimizerBase
+class RedundantLoadEliminationOptimizer : public IROptimizerBase
 {
 public:
-    explicit RedundantLoadEliminationOptimizer(const shared_ptr<MiddleIRAST>& irast_):
-        IROptimizerBase(irast_)
+    explicit RedundantLoadEliminationOptimizer(const shared_ptr<MiddleIRAST>& irast_)
+        : IROptimizerBase(irast_)
     {
     }
     virtual void run() override;
 };
 
-}   // namespace MiddleIR
+}   // namespace MiddleIR::Optimizer
 
 #endif   // IRBACKENDR5_REDUNDANTLOADELIMINATIONOPTIMIZER_H

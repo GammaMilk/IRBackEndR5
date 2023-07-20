@@ -14,11 +14,15 @@ class R5IREmitter
 {
 public:
     ~R5IREmitter() = default;
-    explicit R5IREmitter(shared_ptr<MiddleIR::MiddleIRAST> ast_): _middleIRAST(std::move(ast_)) {}
+    explicit R5IREmitter(shared_ptr<MiddleIR::MiddleIRAST> ast_)
+        : _middleIRAST(std::move(ast_))
+    {
+    }
     void build(std::ostream& os);
 
 protected:
     shared_ptr<MiddleIR::MiddleIRAST> _middleIRAST;
+    static size_t getAllocaSizeOfFunction(shared_ptr<MiddleIR::MiddleIRFuncDef> func);
 };
-}
+}   // namespace R5Emitter
 #endif   // IRBACKENDR5_R5IREMITTER_H

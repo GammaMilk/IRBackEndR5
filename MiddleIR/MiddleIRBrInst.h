@@ -34,7 +34,7 @@ private:
 
 public:
     BrInst(
-        BrType                                 brType_,
+        BrType                                     brType_,
         std::shared_ptr<MiddleIRVal>               cond_,
         const std::shared_ptr<MiddleIRBasicBlock>& ifTrue_,
         const std::shared_ptr<MiddleIRBasicBlock>& ifFalse_
@@ -47,7 +47,10 @@ public:
     {
     }
     BrInst(
-        BrType brType_, std::shared_ptr<MiddleIRVal> cond_, string ifTrueLabel_, string ifFalseLabel_
+        BrType                       brType_,
+        std::shared_ptr<MiddleIRVal> cond_,
+        string                       ifTrueLabel_,
+        string                       ifFalseLabel_
     )
         : MiddleIRInst(MiddleIRInst::InstType::BrInst, spVoidType)
         , _brType(brType_)

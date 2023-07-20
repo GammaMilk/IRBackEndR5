@@ -21,11 +21,11 @@ public:
 protected:
     SPType _type;
     string _name;
-    bool _const = false;
+    bool   _const = false;
 
 public:
     [[nodiscard]] bool isConst() const { return _const; }
-    void setConst(bool const_) { _const = const_; }
+    void               setConst(bool const_) { _const = const_; }
 
 public:
     explicit MiddleIRVal(SPType type)
@@ -38,6 +38,10 @@ public:
     {
     }
     [[nodiscard]] virtual const SPType& getType() const { return _type; }
+    [[nodiscard]] shared_ptr<ArrayType> getArrayType() const
+    {
+        return dynamic_pointer_cast<ArrayType>(_type);
+    }
     void                                setType(const SPType& type) { _type = type; }
     [[nodiscard]] virtual const string& getName() const { return _name; }
     void                                setName(const string& name) { _name = name; }
@@ -51,7 +55,6 @@ public:
     {
         setConst(true);
     }
-
 };
 
 class R5IRValConstInt : public R5IRValConst
@@ -65,7 +68,7 @@ public:
     [[nodiscard]] bool needLUI() const { return _value > 0x7fff || _value < -0x8000; }
     [[nodiscard]] bool isZero() const { return _value == 0; }
     [[nodiscard]] bool inBss() const { return isZero(); }
-    [[nodiscard]] int getWord() const { return _value; }
+    [[nodiscard]] int  getWord() const { return _value; }
 
 protected:
     int _value;
@@ -93,8 +96,8 @@ public:
         , _value((float)value_)
     {
     }
-    bool isZero() const { return _value == 0; }
-    bool inBss() const { return isZero(); }
+    bool     isZero() const { return _value == 0; }
+    bool     inBss() const { return isZero(); }
     uint32_t getWord() const { return *(uint32_t*)&_value; }
 
 protected:
@@ -113,16 +116,20 @@ public:
         , _elements(std::move(elements_))
     {
         IR_ASSERT(_type->type == MiddleIRType::ARRAY, "R5IRArray::R5IRArray: type must be ARRAY");
-        if(empty()) return ;
+        if (empty()) return;
         IR_ASSERT(
             _elements.size() == dynamic_cast<ArrayType*>(_type.get())->getSize(),
             "R5IRArray::R5IRArray: size not match"
         );
     }
-    [[nodiscard]] inline bool empty() const {return _elements.empty();}
+    [[nodiscard]] inline bool empty() const { return _elements.empty(); }
+    inline size_t             getSizeBytes() const
+    {
+        auto arrayType = dynamic_pointer_cast<ArrayType>(_type);
+        return arrayType->getSizeBytes();
+    }
 
 
-protected:
     vector<shared_ptr<MiddleIRVal>> _elements;
 };
 
@@ -130,7 +137,7 @@ class R5IRZeroInitializerVal : public MiddleIRVal
 {
 public:
     explicit R5IRZeroInitializerVal()
-        : MiddleIRVal(std::move(spZeroInitializerType))
+        : MiddleIRVal(spZeroInitializerType)
     {
     }
 };

@@ -13,8 +13,9 @@ void RedundantLoadEliminationOptimizer::run()
     for (auto& func : _irast->funcDefs) {
         for (auto& bb : func->getBasicBlocks()) {
             // round 1: find first load from
-            std::set<shared_ptr<MiddleIRVal>>                                 loadFrom;
-            std::unordered_map<shared_ptr<MiddleIRVal>, shared_ptr<MiddleIRInst>> fromFirstRepWithSecond;
+            std::set<shared_ptr<MiddleIRVal>> loadFrom;
+            std::unordered_map<shared_ptr<MiddleIRVal>, shared_ptr<MiddleIRInst>>
+                fromFirstRepWithSecond;
             for (auto& inst : bb->_instructions) {
                 if (inst->isLoadInst()) {
                     auto loadInst = dynamic_pointer_cast<LoadInst>(inst);

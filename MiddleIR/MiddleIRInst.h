@@ -45,7 +45,10 @@ public:
     {
         return inst._instType == InstType::ReturnInst;
     }
-    inline static bool isBrInst(const MiddleIRInst& inst) { return inst._instType == InstType::BrInst; }
+    inline static bool isBrInst(const MiddleIRInst& inst)
+    {
+        return inst._instType == InstType::BrInst;
+    }
     inline static bool isTerminatorInst(const MiddleIRInst& inst)
     {
         return isReturnInst(inst) || isBrInst(inst);
@@ -106,14 +109,14 @@ public:
 
 protected:
     std::vector<shared_ptr<MiddleIRVal>*> _useList;
-    bool _deleted=false;
+    bool                                  _deleted = false;
 
 public:
     [[nodiscard]] bool isDeleted() const;
-    void setDeleted(bool deleted);
+    void               setDeleted(bool deleted);
 
 private:
-    bool mustAddFirst = false;
+    bool   mustAddFirst  = false;
     size_t lastRemovePos = -1;
 };
 
@@ -131,7 +134,7 @@ public:
 class ReturnInst : public MiddleIRInst
 {
 private:
-    SPType                   _opType;
+    SPType                       _opType;
     std::shared_ptr<MiddleIRVal> _opVal;
 
 public:
@@ -142,7 +145,7 @@ public:
     {
         _useList.emplace_back(&_opVal);
     }
-    [[nodiscard]] const SPType&                   getOpType() const { return _opType; }
+    [[nodiscard]] const SPType&                       getOpType() const { return _opType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getOpVal() const { return _opVal; }
 };
 
@@ -151,8 +154,8 @@ class ICmpInst : public MiddleIRInst
 public:
     enum ICmpOp { EQ, NE, SGT, SGE, SLT, SLE, UGE, UGT, ULE, ULT } iCmpOp;
     ICmpInst(
-        ICmpOp                   iMathOp_,
-        SPType                   opType_,
+        ICmpOp                       iMathOp_,
+        SPType                       opType_,
         std::shared_ptr<MiddleIRVal> opVal1_,
         std::shared_ptr<MiddleIRVal> opVal2_
     )
@@ -165,10 +168,10 @@ public:
         _useList.emplace_back(&_opVal1);
         _useList.emplace_back(&_opVal2);
     }
-    [[nodiscard]] const SPType&                   getOpType() const { return _opType; }
+    [[nodiscard]] const SPType&                       getOpType() const { return _opType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getOpVal1() const { return _opVal1; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getOpVal2() const { return _opVal2; }
-    static ICmpOp                                 fromString(const string& op_)
+    static ICmpOp                                     fromString(const string& op_)
     {
         if (op_ == "eq") return ICmpOp::EQ;
         if (op_ == "ne") return ICmpOp::NE;
@@ -184,7 +187,7 @@ public:
     }
 
 private:
-    SPType                   _opType;
+    SPType                       _opType;
     std::shared_ptr<MiddleIRVal> _opVal1;
     std::shared_ptr<MiddleIRVal> _opVal2;
 };
@@ -209,8 +212,8 @@ public:
         UNO
     } fCmpOp;
     FCmpInst(
-        FCmpOp                   fMathOp_,
-        SPType                   opType_,
+        FCmpOp                       fMathOp_,
+        SPType                       opType_,
         std::shared_ptr<MiddleIRVal> opVal1_,
         std::shared_ptr<MiddleIRVal> opVal2_
     )
@@ -244,7 +247,7 @@ public:
     }
 
 private:
-    SPType                   _opType;
+    SPType                       _opType;
     std::shared_ptr<MiddleIRVal> _opVal1;
     std::shared_ptr<MiddleIRVal> _opVal2;
 };
@@ -293,8 +296,8 @@ class IMathInst : public MiddleIRInst
 public:
     enum class IMathOp { ADD, SUB, MUL, SDIV, SREM, UDIV, UREM } iMathOp;
     IMathInst(
-        IMathOp                  iMathOp_,
-        SPType                   opType_,
+        IMathOp                      iMathOp_,
+        SPType                       opType_,
         std::shared_ptr<MiddleIRVal> opVal1_,
         std::shared_ptr<MiddleIRVal> opVal2_
     )
@@ -307,12 +310,12 @@ public:
         _useList.emplace_back(&_opVal1);
         _useList.emplace_back(&_opVal2);
     }
-    [[nodiscard]] const SPType&                   getOpType() const { return _opType; }
+    [[nodiscard]] const SPType&                       getOpType() const { return _opType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getOpVal1() const { return _opVal1; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getOpVal2() const { return _opVal2; }
 
 protected:
-    SPType                   _opType;
+    SPType                       _opType;
     std::shared_ptr<MiddleIRVal> _opVal1;
     std::shared_ptr<MiddleIRVal> _opVal2;
 };
@@ -321,8 +324,8 @@ class FMathInst : public MiddleIRInst
 public:
     enum FMathOp { FADD, FSUB, FMUL, FDIV, FREM } fMathOp;
     FMathInst(
-        FMathOp                  fMathOp_,
-        SPType                   opType_,
+        FMathOp                      fMathOp_,
+        SPType                       opType_,
         std::shared_ptr<MiddleIRVal> opVal1_,
         std::shared_ptr<MiddleIRVal> opVal2_
     )
@@ -335,12 +338,12 @@ public:
         _useList.emplace_back(&_opVal1);
         _useList.emplace_back(&_opVal2);
     }
-    [[nodiscard]] const SPType&                   getOpType() const { return _opType; }
+    [[nodiscard]] const SPType&                       getOpType() const { return _opType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getOpVal1() const { return _opVal1; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getOpVal2() const { return _opVal2; }
 
 protected:
-    SPType                   _opType;
+    SPType                       _opType;
     std::shared_ptr<MiddleIRVal> _opVal1;
     std::shared_ptr<MiddleIRVal> _opVal2;
 };
@@ -356,13 +359,13 @@ public:
     {
         _useList.emplace_back(&_from);
     }
-    [[nodiscard]] const SPType&                   getFromType() const { return _fromType; }
-    [[nodiscard]] const SPType&                   getToType() const { return _toType; }
+    [[nodiscard]] const SPType&                       getFromType() const { return _fromType; }
+    [[nodiscard]] const SPType&                       getToType() const { return _toType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getFrom() const { return _from; }
 
 protected:
-    SPType                   _fromType;
-    SPType                   _toType;
+    SPType                       _fromType;
+    SPType                       _toType;
     std::shared_ptr<MiddleIRVal> _from;
 };
 
@@ -372,15 +375,13 @@ public:
     CallInst(
         std::shared_ptr<MiddleIRFuncDecl>         func_,
         std::vector<std::shared_ptr<MiddleIRVal>> args_,
-        SPType                                retType_
+        SPType                                    retType_
     )
         : MiddleIRInst(InstType::CallInst, std::move(retType_))
         , _func(std::move(func_))
         , _args(std::move(args_))
     {
-        for (auto& arg : _args) {
-            _useList.emplace_back(&arg);
-        }
+        for (auto& arg : _args) { _useList.emplace_back(&arg); }
     }
     [[nodiscard]] const std::shared_ptr<MiddleIRFuncDecl>&         getFunc() const { return _func; }
     [[nodiscard]] const std::vector<std::shared_ptr<MiddleIRVal>>& getArgs() const { return _args; }
@@ -404,13 +405,13 @@ public:
     {
         _useList.emplace_back(&_from);
     }
-    [[nodiscard]] const SPType&                   getFromType() const { return _fromType; }
-    [[nodiscard]] const SPType&                   getToType() const { return _toType; }
+    [[nodiscard]] const SPType&                       getFromType() const { return _fromType; }
+    [[nodiscard]] const SPType&                       getToType() const { return _toType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getFrom() const { return _from; }
 
 protected:
-    SPType                   _fromType;
-    SPType                   _toType;
+    SPType                       _fromType;
+    SPType                       _toType;
     std::shared_ptr<MiddleIRVal> _from;
 };
 
@@ -418,7 +419,9 @@ protected:
 class GetElementPtrInst : public MiddleIRInst
 {
 public:
-    GetElementPtrInst(SPType type1, SPType fromType, shared_ptr<MiddleIRVal> from, vector<int> index)
+    GetElementPtrInst(
+        SPType type1, SPType fromType, shared_ptr<MiddleIRVal> from, vector<int> index
+    )
         : MiddleIRInst(InstType::GetElementPtrInst, std::move(spVoidType))
         , _fromType(std::move(fromType))
         , _from(std::move(from))
@@ -455,14 +458,14 @@ public:
         _type = makePointer(innerType);
         _useList.emplace_back(&_from);
     }
-    [[nodiscard]] const SPType&                   getFromType() const { return _fromType; }
+    [[nodiscard]] const SPType&                       getFromType() const { return _fromType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>& getFrom() const { return _from; }
-    [[nodiscard]] const vector<int>&              getIndex() const { return _index; }
+    [[nodiscard]] const vector<int>&                  getIndex() const { return _index; }
 
 protected:
-    SPType                   _fromType;
+    SPType                       _fromType;
     std::shared_ptr<MiddleIRVal> _from;
-    vector<int>              _index;
+    vector<int>                  _index;
 };
 
 }   // namespace MiddleIR

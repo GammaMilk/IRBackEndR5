@@ -12,8 +12,15 @@ namespace MiddleIR
 {
 std::any GenIRAST::visitCompilationUnit(LLVMIRParser::CompilationUnitContext* context)
 {
+    // ALL entrypoint.
     // just visit children
-    return visitChildren(context);
+    visitChildren(context);
+
+    // do post-processing
+    // 1. set funcDef  prev/next BB
+    for (auto& func : m_irast.funcDefs) { func->buildBBPrevNext(); }
+
+    return nullptr;
 }
 std::any GenIRAST::visitTopLevelEntity(LLVMIRParser::TopLevelEntityContext* context)
 {
@@ -33,7 +40,7 @@ std::any GenIRAST::visitGlobalDef(LLVMIRParser::GlobalDefContext* context)
     // name
     string globalName = context->GlobalIdent()->getText();
     // global/const
-    auto imm = std::any_cast<string>(context->immutable()->accept(this));
+    auto imm     = std::any_cast<string>(context->immutable()->accept(this));
     bool isConst = imm == "const";
     // type
     context->type()->accept(this);
@@ -41,7 +48,7 @@ std::any GenIRAST::visitGlobalDef(LLVMIRParser::GlobalDefContext* context)
     // val
     context->constant()->accept(this);
     auto globalVal = std::move(lastVal);
-    if(globalVal->getType()->type== MiddleIRType::ZEROINITIALIZER && globalType->isArray()) {
+    if (globalVal->getType()->type == MiddleIRType::ZEROINITIALIZER && globalType->isArray()) {
         globalVal = make_shared<R5IRArray>(globalType, vector<shared_ptr<MiddleIRVal>>());
     }
 
@@ -49,7 +56,7 @@ std::any GenIRAST::visitGlobalDef(LLVMIRParser::GlobalDefContext* context)
     globalVal->setName(globalName);
     globalVal->setConst(isConst);
 
-    if(isConst){
+    if (isConst) {
         m_irast.globalConsts.emplace_back(globalVal);
     } else {
         m_irast.globalVars.emplace_back(globalVal);
@@ -153,8 +160,7 @@ std::any GenIRAST::visitFuncDef(LLVMIRParser::FuncDefContext* context)
 
     return 0;
 }
-[[deprecated]] std::any GenIRAST::visitFuncHeader(LLVMIRParser::FuncHeaderContext* context
-)
+[[deprecated]] std::any GenIRAST::visitFuncHeader(LLVMIRParser::FuncHeaderContext* context)
 {
     // No need. FuncHeader need to be handled in visitFuncDecl and visitFuncDef
     return nullptr;
@@ -479,7 +485,8 @@ std::any GenIRAST::visitGetElementPtrInst(LLVMIRParser::GetElementPtrInstContext
         pointers.emplace_back(DPC(R5IRValConstInt, val)->getValue());
     }
 
-    // GetElementPtrInst(SPType type1, SPType fromType, shared_ptr<MiddleIRVal> from, vector<int> index)
+    // GetElementPtrInst(SPType type1, SPType fromType, shared_ptr<MiddleIRVal> from, vector<int>
+    // index)
     auto inst = MU<GetElementPtrInst>(type, fromType, std::move(fromVal), std::move(pointers));
     lastInst  = std::move(inst);
     return 0;
@@ -595,8 +602,8 @@ std::any GenIRAST::visitCallInst(LLVMIRParser::CallInstContext* context)
     context->value()->accept(this);
     auto func_val = std::move(lastVal);
     IR_ASSERT(func_val->getType()->isFunction(), "callInst: value is not a function");
-    auto                                   func = DPC(MiddleIRFuncDecl, func_val);
-    auto                                   args = context->args();
+    auto                                       func = DPC(MiddleIRFuncDecl, func_val);
+    auto                                       args = context->args();
     std::vector<std::shared_ptr<MiddleIRType>> argTypes;
     std::vector<std::shared_ptr<MiddleIRVal>>  argValues;
     for (auto arg : args->arg()) {
@@ -711,11 +718,12 @@ std::any GenIRAST::visitFloatConst(LLVMIRParser::FloatConstContext* context)
 {
     string floatString = context->FloatLit()->getText();
     // starts with 0x
-    if (floatString.length()>2 && floatString[0] == '0' && (floatString[1] == 'x' || floatString[1] == 'X')) {
-        floatString = floatString.substr(2);
-        uint64_t num = std::stoull(floatString, nullptr, 16);
+    if (floatString.length() > 2 && floatString[0] == '0' &&
+        (floatString[1] == 'x' || floatString[1] == 'X')) {
+        floatString       = floatString.substr(2);
+        uint64_t num      = std::stoull(floatString, nullptr, 16);
         auto     floatVal = IR_FLOAT_CONST(num);
-        lastVal         = std::move(floatVal);
+        lastVal           = std::move(floatVal);
     } else {
         double num      = std::stod(context->FloatLit()->getText());
         auto   floatVal = IR_FLOAT_CONST(num);
@@ -725,11 +733,12 @@ std::any GenIRAST::visitFloatConst(LLVMIRParser::FloatConstContext* context)
 }
 std::any GenIRAST::visitArrayConst(LLVMIRParser::ArrayConstContext* context)
 {
-    size_t                                size = context->constant().size();
+    size_t                                    size = context->constant().size();
     std::vector<std::shared_ptr<MiddleIRVal>> values;
     context->concreteType(0)->accept(this);
     auto elemType = lastType;
-    // attention: this TYPE is the elemType of ONE element. DO NOT use this elemType to represent the array
+    // attention: this TYPE is the elemType of ONE element. DO NOT use this elemType to represent
+    // the array
     for (size_t i = 0; i < size; i++) {
         context->concreteType(i)->accept(this);
         IR_ASSERT(*lastType == *elemType, "ArrayConst should have the same elemType");
@@ -738,7 +747,7 @@ std::any GenIRAST::visitArrayConst(LLVMIRParser::ArrayConstContext* context)
     }
     // guess the elemType of the array
     auto arrayType = make_shared<ArrayType>(size, elemType);
-    lastVal = std::make_shared<R5IRArray>(arrayType, std::move(values));
+    lastVal        = std::make_shared<R5IRArray>(arrayType, std::move(values));
     return 0;
 }
 std::any GenIRAST::visitType(LLVMIRParser::TypeContext* context)

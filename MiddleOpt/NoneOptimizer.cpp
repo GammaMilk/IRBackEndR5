@@ -7,4 +7,4 @@
 namespace MiddleIR::Optimizer
 {
 void NoneOptimizer::run() {}
-}   // namespace MiddleIR
+}   // namespace MiddleIR::Optimizer

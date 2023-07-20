@@ -16,7 +16,8 @@ class IROptimizerBase
 {
 public:
     virtual ~IROptimizerBase() = default;
-    explicit IROptimizerBase(shared_ptr<MiddleIRAST> irast):_irast(std::move(irast)){};
+    explicit IROptimizerBase(shared_ptr<MiddleIRAST> irast)
+        : _irast(std::move(irast)){};
     virtual void run() = 0;
 
 protected:
@@ -26,6 +27,6 @@ public:
     [[nodiscard]] const shared_ptr<MiddleIRAST>& getIrast() const { return _irast; }
 };
 
-}   // namespace MiddleIR
+}   // namespace MiddleIR::Optimizer
 
 #endif   // IRBACKENDR5_IROPTIMIZERBASE_H

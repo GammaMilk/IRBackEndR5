@@ -6,11 +6,11 @@
 
 namespace MiddleIR
 {
-VoidType             voidType;
-IntType              intType32(32);
-IntType              boolType(1);
-FloatType            floatType;
-LabelType            labelType;
+VoidType                 voidType;
+IntType                  intType32(32);
+IntType                  boolType(1);
+FloatType                floatType;
+LabelType                labelType;
 shared_ptr<MiddleIRType> spVoidType            = std::make_shared<VoidType>(voidType);
 shared_ptr<MiddleIRType> spIntType32           = std::make_shared<IntType>(intType32);
 shared_ptr<MiddleIRType> spBoolType            = std::make_shared<IntType>(boolType);
