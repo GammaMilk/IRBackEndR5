@@ -6,4 +6,8 @@
 
 namespace R5Emitter
 {
+string R5Yin::toString() const
+{
+    return regName;
+}
 }   // namespace R5Emitter

@@ -16,7 +16,6 @@ namespace R5Emitter
 
 struct R5Function {
     size_t                                    stackSize;
-    std::unordered_map<std::string, R5Taichi> taichiMap;
     std::list<R5AsmStrangeFake>               asmList;
 };
 

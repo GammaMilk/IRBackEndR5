@@ -22,7 +22,7 @@ public:
 
 protected:
     shared_ptr<MiddleIR::MiddleIRAST> _middleIRAST;
-    static size_t getAllocaSizeOfFunction(shared_ptr<MiddleIR::MiddleIRFuncDef> func);
+    static uint64_t getAllocaSizeOfFunction(shared_ptr<MiddleIR::MiddleIRFuncDef> func);
 };
 }   // namespace R5Emitter
 #endif   // IRBACKENDR5_R5IREMITTER_H

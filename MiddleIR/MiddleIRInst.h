@@ -195,22 +195,9 @@ private:
 class FCmpInst : public MiddleIRInst
 {
 public:
-    enum class FCmpOp {
-        FALSE,
-        OEQ,
-        OGE,
-        OGT,
-        OLE,
-        OLT,
-        TRUE,
-        UEQ,
-        UGE,
-        UGT,
-        ULE,
-        ULT,
-        UNE,
-        UNO
-    } fCmpOp;
+    // clang-format off
+    enum class FCmpOp { FALSE, OEQ, OGE, OGT, OLE, OLT, TRUE, UEQ, UGE, UGT, ULE, ULT, UNE, UNO} fCmpOp;
+    // clang-format on
     FCmpInst(
         FCmpOp                       fMathOp_,
         SPType                       opType_,
@@ -267,7 +254,7 @@ protected:
     std::shared_ptr<MiddleIRVal> _from;
 
 public:
-    const shared_ptr<MiddleIRVal>& getFrom() const { return _from; }
+    [[nodiscard]] const shared_ptr<MiddleIRVal>& getFrom() const { return _from; }
 };
 
 class StoreInst : public MiddleIRInst
@@ -295,6 +282,7 @@ class IMathInst : public MiddleIRInst
 {
 public:
     enum class IMathOp { ADD, SUB, MUL, SDIV, SREM, UDIV, UREM } iMathOp;
+    [[nodiscard]] IMathOp getIMathOp() const { return iMathOp; }
     IMathInst(
         IMathOp                      iMathOp_,
         SPType                       opType_,
@@ -323,6 +311,7 @@ class FMathInst : public MiddleIRInst
 {
 public:
     enum FMathOp { FADD, FSUB, FMUL, FDIV, FREM } fMathOp;
+    FMathOp getFMathOp() const { return fMathOp; }
     FMathInst(
         FMathOp                      fMathOp_,
         SPType                       opType_,
@@ -385,6 +374,7 @@ public:
     }
     [[nodiscard]] const std::shared_ptr<MiddleIRFuncDecl>&         getFunc() const { return _func; }
     [[nodiscard]] const std::vector<std::shared_ptr<MiddleIRVal>>& getArgs() const { return _args; }
+    [[nodiscard]] MiddleIRType::IRType getRetType() const { return _func->getRetType()->type; }
 
 protected:
     std::shared_ptr<MiddleIRFuncDecl>         _func;
