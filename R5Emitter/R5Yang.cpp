@@ -75,4 +75,12 @@ string R5Yang::toString() const
     case fs11: return "fs11";
     }
 }
+bool R5Yang::operator==(const R5Taichi& rhs) const
+{
+    return R5Taichi::operator==(rhs) && reg == dynamic_cast<const R5Yang&>(rhs).reg;
+}
+bool R5Yang::operator!=(const R5Taichi& rhs) const
+{
+    return R5Taichi::operator!=(rhs) || reg != dynamic_cast<const R5Yang&>(rhs).reg;
+}
 }   // namespace R5Emitter

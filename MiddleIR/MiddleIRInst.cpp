@@ -7,7 +7,7 @@
 namespace MiddleIR
 {
 [[maybe_unused]] bool MiddleIRInst::tryReplaceUse(
-    std::shared_ptr<MiddleIRVal> oldVal, std::shared_ptr<MiddleIRVal> newVal
+    const std::shared_ptr<MiddleIRVal>& oldVal, const std::shared_ptr<MiddleIRVal>& newVal
 )
 {
     bool replaced = false;

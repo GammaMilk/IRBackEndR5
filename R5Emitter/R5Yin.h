@@ -22,9 +22,15 @@ public:
         , type(type_)
     {
     }
-    string               regName;
-    YinType              type;
-    [[nodiscard]] string toString() const override;
+    string                       regName;
+    bool                         operator==(const R5Taichi& rhs) const override;
+    bool                         operator!=(const R5Taichi& rhs) const override;
+    YinType                      type;
+    [[nodiscard]] string         toString() const override;
+    [[nodiscard]] inline bool    isFloat() const;
+    [[nodiscard]] inline bool    isInt() const;
+    [[nodiscard]] inline bool    isPointer() const;
+    [[nodiscard]] inline YinType getType() const;
 };
 
 }   // namespace R5Emitter

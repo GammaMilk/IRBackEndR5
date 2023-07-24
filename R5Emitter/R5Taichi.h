@@ -20,6 +20,8 @@ public:
     [[nodiscard]] inline bool isYin() const { return phase == Yin; }
     [[nodiscard]] inline bool isRu() const { return phase == Ru; }
     [[nodiscard]] inline bool isLai() const { return phase == Lai; }
+    virtual bool              operator==(const R5Taichi& rhs) const { return phase == rhs.phase; }
+    virtual bool              operator!=(const R5Taichi& rhs) const { return !(rhs == *this); }
     explicit R5Taichi(Phase p)
         : phase(p)
     {

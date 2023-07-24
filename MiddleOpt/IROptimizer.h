@@ -25,7 +25,7 @@ public:
         FUNCTION_INLINE                  = 0x40,
         NONE_OPTIMIZATION                = 0x80,
         REDUNDANT_LOAD_ELIMINATION       = 0x100,
-        ALL                              = 0xffffffffffffffff
+        ALL                              = (uint64_t)-1
     } enabledOpt           = O0;
     virtual ~IROptimizer() = default;
     explicit IROptimizer(const shared_ptr<MiddleIRAST>& irast_, ENABLED_OPT enabledOpt_ = O0)

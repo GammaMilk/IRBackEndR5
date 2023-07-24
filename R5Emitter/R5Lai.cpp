@@ -14,4 +14,12 @@ void R5Lai::negative()
 {
     value = -value;
 }
+bool R5Lai::operator==(const R5Taichi& rhs) const
+{
+    return R5Taichi::operator==(rhs) && value == dynamic_cast<const R5Lai&>(rhs).value;
+}
+bool R5Lai::operator!=(const R5Taichi& rhs) const
+{
+    return R5Taichi::operator!=(rhs) || value != dynamic_cast<const R5Lai&>(rhs).value;
+}
 }   // namespace R5Emitter

@@ -477,12 +477,12 @@ std::any GenIRAST::visitGetElementPtrInst(LLVMIRParser::GetElementPtrInstContext
     auto fromVal = std::move(lastVal);
 
     // i32 114, i32 1, ...
-    auto pointers = std::vector<int>();
+    auto pointers = std::vector<shared_ptr<MiddleIRVal>>();
     for (auto i = 1; i < context->value().size(); i++) {
         context->value(i)->accept(this);
         auto val = std::move(lastVal);
-        IR_ASSERT(DPC(R5IRValConstInt, val) != nullptr, "Not a const int");
-        pointers.emplace_back(DPC(R5IRValConstInt, val)->getValue());
+        // 这里不一定非得是const，还有可能是其他的val。比如%v3
+        pointers.emplace_back(val);
     }
 
     // GetElementPtrInst(SPType type1, SPType fromType, shared_ptr<MiddleIRVal> from, vector<int>

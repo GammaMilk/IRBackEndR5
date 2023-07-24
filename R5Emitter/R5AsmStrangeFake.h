@@ -12,9 +12,11 @@ namespace R5Emitter
 enum FakeOPs {
     FAKEOPS_BEGIN, NOP,
     // RV64I
-    LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, LW, SW, ADDIW, ADDW, SUBW, SLT, SLTU,
+    LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU, LW, SW, ADDIW, ADDW, SUBW, SLT, SLTU, LD, SD,
+    // 64bit pointer
+    ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLLI, SRLI, SRAI, ANDI, ORI, XORI,
     // RV64M
-    MULW, DIVW, REMW,
+    MULW, DIVW, REMW, MUL, DIV, REM,
     // RV64F , convert
     FLW, FSW, FCVT_S_W, FCVT_W_S, FMV_X_S, FMV_S_X,
     // RV64F, Calculate
@@ -24,11 +26,13 @@ enum FakeOPs {
     FMADD_S, FMSUB_S, FNMADD_S, FNMSUB_S,
     // Psuedo
     J, CALL, BGT, BLE, LI, LA, LLA, MV, RET, NOT, NEGW, SEQZ, SNEZ, SLTZ, SGTZ,
-    BEQZ, BNEZ, BLEZ, BGEZ, BGTZ, BLTZ, BGTU,
+    BEQZ, BNEZ, BLEZ, BGEZ, BGTZ, BLTZ, BGTU, BLEU,
 
     FAKEOPS_END
 };
 // clang-format on
+
+// 汇编，奇异赝品
 struct R5AsmStrangeFake {
     // clang-format off
     enum OPType {
@@ -36,22 +40,25 @@ struct R5AsmStrangeFake {
     };
     // clang-format on
 
-    static const int R5_MAX_ARG_NUM = 4;
-    FakeOPs          fakeOP         = FAKEOPS_BEGIN;
-    R5Taichi*        operands[R5_MAX_ARG_NUM]{};
+    static const int     R5_MAX_ARG_NUM = 4;
+    FakeOPs              fakeOP         = FAKEOPS_BEGIN;
+    size_t               opNum          = 0;
+    shared_ptr<R5Taichi> operands[R5_MAX_ARG_NUM]{};
     enum DefUse { DEF, USE, UNUSED };
     DefUse defUse[4] = {UNUSED, UNUSED, UNUSED, UNUSED};
-    R5AsmStrangeFake(FakeOPs oPs, std::initializer_list<R5Taichi*>&& operands_)
+    // 对于带括号的指令，括号外边的写前边。比如sd r2, 0(r3)。写成sd, {r2,0,r3}
+    R5AsmStrangeFake(FakeOPs oPs, std::initializer_list<shared_ptr<R5Taichi>>&& operands_)
         : fakeOP(oPs)
     {
+        opNum = operands_.size();
         int i = 0;
         // 一般来讲，第一个都是def, 后面的都是use
         // 特殊情况特殊处理。
         for (auto& operand : operands_) {
             if (i == 0) {
-                defUse[i++] = DEF;
+                defUse[i] = DEF;
             } else {
-                defUse[i++] = USE;
+                defUse[i] = USE;
             }
             operands[i++] = operand;
         }
@@ -66,10 +73,7 @@ struct R5AsmStrangeFake {
     }
     static string FakeOPToString(FakeOPs op);
     string        toString();
-    ~R5AsmStrangeFake()
-    {
-        for (auto& operand : operands) delete operand;
-    }
+    ~R5AsmStrangeFake() = default;
 };
 
 }   // namespace R5Emitter

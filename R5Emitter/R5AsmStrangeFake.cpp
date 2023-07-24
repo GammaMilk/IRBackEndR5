@@ -8,23 +8,7 @@ namespace R5Emitter
 {
 string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
 {
-    /**
-     * FAKEOPS_BEGIN,
-// RV64I
-LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, LW, SW, ADDIW, ADDW, SUBW, SLT, SLTU,
-// RV64M
-MULW, DIVW, REMW,
-// RV64F , convert
-FLW, FSW, FCVT_S_W, FCVT_W_S, FMV_X_S, FMV_S_X,
-// RV64F, Calculate
-FADD_S, FSUB_S, FMUL_S, FDIV_S, FSGNJ_S, FSGNJN_S, FSGNJX_S, FMIN_S, FMAX_S, FSQRT_S,
-FLT, FEQ, FLE,
-// Psuedo
-J, CALL, BGT, BLE, LI, LA, LLA, MV, RET, NOT, NEGW, SEQZ, SNEZ, SLTZ, SGTZ,
-BEQZ, BNEZ, BLEZ, BGEZ, BGTZ, BLTZ, BGTU,
 
-FAKEOPS_END
-     */
     switch (op) {
     case LUI: return "lui";
     case AUIPC: return "auipc";
@@ -92,6 +76,29 @@ FAKEOPS_END
     case FMSUB_S: return "fmsub.s";
     case FNMADD_S: return "fnmadd.s";
     case FNMSUB_S: return "fnmsub.s";
+    case NOP: return "nop";
+    case LD: return "ld";
+    case SD: return "sd";
+    case BLTU: return "bltu";
+    case BGEU: return "bgeu";
+    case BLEU: return "bleu";
+    case ADD: return "add";
+    case SUB: return "sub";
+    case SLL: return "sll";
+    case SRL: return "srl";
+    case SRA: return "sra";
+    case AND: return "and";
+    case OR: return "or";
+    case XOR: return "xor";
+    case SLLI: return "slli";
+    case SRLI: return "srli";
+    case SRAI: return "srai";
+    case ANDI: return "andi";
+    case ORI: return "ori";
+    case XORI: return "xori";
+    case MUL: return "mul";
+    case DIV: return "div";
+    case REM: return "rem";
     }
     return "{Unknown FakeOP} " + std::to_string(op);
 }
@@ -103,7 +110,7 @@ string R5AsmStrangeFake::toString()
         if (defUse[i] == UNUSED)
             break;
         else {
-            ss << operands[i] << " ";
+            ss << operands[i]->toString() << ", ";
         }
     }
     return ss.str();

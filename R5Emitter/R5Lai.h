@@ -18,6 +18,8 @@ public:
         , value(value_)
     {
     }
+    bool operator==(const R5Taichi& rhs) const override;
+    bool operator!=(const R5Taichi& rhs) const override;
     // 负号操作
     void                 negative();
     [[nodiscard]] string toString() const override;

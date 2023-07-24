@@ -15,6 +15,10 @@ namespace R5Emitter
 class R5Ru : public R5Taichi
 {
 public:
+    bool operator==(const R5Taichi& rhs) const override;
+    bool operator!=(const R5Taichi& rhs) const override;
+
+public:
     explicit R5Ru(string labelName_)
         : R5Taichi(Ru)
         , labelName(std::move(labelName_))

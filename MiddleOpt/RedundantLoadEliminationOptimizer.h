@@ -16,7 +16,7 @@ public:
         : IROptimizerBase(irast_)
     {
     }
-    virtual void run() override;
+    void run() override;
 };
 
 }   // namespace MiddleIR::Optimizer

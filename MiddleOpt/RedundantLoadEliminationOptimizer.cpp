@@ -4,9 +4,7 @@
 
 #include "RedundantLoadEliminationOptimizer.h"
 
-namespace MiddleIR
-{
-namespace Optimizer
+namespace MiddleIR::Optimizer
 {
 void RedundantLoadEliminationOptimizer::run()
 {
@@ -56,5 +54,4 @@ void RedundantLoadEliminationOptimizer::run()
     }
 }
 
-}   // namespace Optimizer
 }   // namespace MiddleIR
