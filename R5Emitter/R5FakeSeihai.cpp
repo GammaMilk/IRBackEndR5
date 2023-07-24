@@ -677,15 +677,16 @@ void R5FakeSeihai::handleStoreInst(
     }
     if (onStack) {
         // TODO 检查rt是不是超出范围了
-        int64_t of = dynamic_pointer_cast<R5Lai64>(rt)->value;
+        int64_t of = (dynamic_pointer_cast<R5Lai64>(rt))->value;
         if (of >= -2048 && of <= 2047) {
             // 可以用SW
-            sf.emplace_back(R5AsmStrangeFake(op, {rs, R(sp), rt}));
+            sf.emplace_back(R5AsmStrangeFake(op, {rs, rt, R(sp)}));
         } else {
-            // 不能用SW，得用SD
-            sf.emplace_back(R5AsmStrangeFake(SD, {rs, R(sp), rt}));
+            // 先LI，再SW
+            auto tmp0 = V(E(), Pointer);
+            sf.emplace_back(R5AsmStrangeFake(LI, {tmp0, rt}));
+            sf.emplace_back(R5AsmStrangeFake(op, {rs, P(0), tmp0}));
         }
-        sf.emplace_back(R5AsmStrangeFake(op, {rs, rt, R(sp)}));
     } else if (isGlobal) {
         // lla+fsw/sw
         auto tmp = V(E(), Pointer);
