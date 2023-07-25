@@ -62,32 +62,37 @@ static inline shared_ptr<R5Taichi> P(uint64_t v)
 /// \return 生成结果
 static inline string BN(const string& funcName, const string& bbName)
 {
-    return ".LBB_" + funcName + "_" + bbName;
+    string pureFuncName = funcName.substr(1);
+    return ".LBB_" + pureFuncName + "_" + bbName;
 }
 
 /// 生成一个新的虚拟寄存器
 /// \return 寄存器的名字
 inline string R5FakeSeihai::E()
 {
-    return "%_t" + std::to_string(extTempVarNum++);
+    return "%t" + std::to_string(extTempVarNum++);
 }
+
+/// 从IR的函数定义构造一个假圣杯
+/// \param funcDef IR函数定义
 R5FakeSeihai::R5FakeSeihai(const shared_ptr<MiddleIRFuncDef>& funcDef)
     : thisFunc(funcDef)
 {
 }
+
+/// 虚假的圣杯，虚假的汇编。
 void R5FakeSeihai::emitFakeSeihai()
 {
     this->bbNames.clear();
     this->extTempVarNum = 0;
     this->blockStrangeFake.clear();
-    this->taichiMap.clear();
-    this->taichiSize = 0;
-    LOGD("\nFuncName: " << thisFunc->getName());
+    LOGW("FuncName: " << thisFunc->getName());
     for (const auto& bb : thisFunc->getBasicBlocks()) {
-        emitBB(bb);   // bbName and bb itself will be added in this func.
+        emitBB(bb);   // bbName and bb itself will be added Into blockStrangeFake in this func.
+        LOGW("BBName: " << bbNames.back());
         for (auto& t : blockStrangeFake.back()) { LOGD(t.toString()); }
     }
-    // 处理返回语句。我的方法是新建立一个.LRET_<funcName> 标签(基本块)，
+    // 处理返回语句。我的方法是新建立一个funcRetLabel()标签(基本块)，
     // 然后在每个函数的最后一条指令之后插入一条J指令，跳转到。
 }
 static inline void S(shared_ptr<R5Taichi>& a, shared_ptr<R5Taichi>& b)
@@ -117,7 +122,7 @@ void R5FakeSeihai::emitBB(const shared_ptr<MiddleIRBasicBlock>& bb)
         if (it2 != instructions.end()) inst2 = *it2;
         if (inst1->isAllocaInst()) handleAllocaInst(inst1);
         // Int Math
-        else if (inst1->isMathInst())
+        else if (inst1->isIMathInst())
             handleIMathInst(sf, inst1);
         // Float Math
         else if (inst1->isFMathInst())
@@ -241,9 +246,7 @@ void R5FakeSeihai::handleRetInst(
     // 整数挪到a0，浮点数挪到fa0,然后跳转到.LRET_<funcname>
     auto retInst = std::dynamic_pointer_cast<ReturnInst>(inst1);
     auto retType = retInst->getAtomRetType();
-    if (retType == MiddleIRType::VOID) {
-        sf.emplace_back(R5AsmStrangeFake(J, {L(funcRetLabel())}));
-    } else if (retType == MiddleIRType::FLOAT) {
+    if (retType == MiddleIRType::FLOAT) {
         // 先判断是不是立即数。
         auto fVal = retInst->getOpVal();
         if (fVal->isConst()) {
@@ -266,11 +269,14 @@ void R5FakeSeihai::handleRetInst(
     } else {
         RUNTIME_ERROR("他妈的不支持的返回值类型, 传了什么东西进来❤受不了了");
     }
+    sf.emplace_back(R5AsmStrangeFake(J, {L(funcRetLabel())}));
 }
 void R5FakeSeihai::handleCallInst(
     vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1
 )
 {
+    // TODO: 这个函数没有处理要保存的物理寄存器。比如你用到了t1, 你就需要在调用函数之前保存t1.
+    // TODO: feature: 优化：可以检测这个函数到底使用了哪些寄存器。然后只保存这些寄存器。
     auto callInst = std::dynamic_pointer_cast<CallInst>(inst1);
     bool useReg;
     int  fRegRes = 8, iRegRes = 8;   // fa0-7, a0-7
@@ -285,7 +291,6 @@ void R5FakeSeihai::handleCallInst(
     // 特判。如果是@llvm.memset.p0.i32(i32*, i8, i32, i1), 那么应该调用的是memset
     if (callInst->getFunc()->getName() == "@llvm.memset.p0.i32") {
         // a0-2: dst, val, len. val肯定是0. dst是指针，len是整数。
-        // TODO 一会再写memset.
         auto dstTaichi = V(callInst->getArgs()[0]->getName(), Pointer);
         sf.emplace_back(R5AsmStrangeFake(MV, {R(a0), dstTaichi}));
         sf.emplace_back(R5AsmStrangeFake(MV, {R(a1), R(zero)}));
@@ -530,6 +535,18 @@ void R5FakeSeihai::handleCvtInst(
             sf.emplace_back(R5AsmStrangeFake(
                 FCVT_W_S,
                 {V(convertInst->getName(), Int), V(convertInst->getFrom()->getName(), Float)}
+            ));
+        }
+    } else if (cvtOp == MiddleIR::ConvertInst::ZEXT) {
+        // 老样子，还是得单独处理立即数。
+        if (convertInst->getFrom()->isConst()) {
+            auto tmp = V(E(), Int);
+            int  number =
+                std::dynamic_pointer_cast<R5IRValConstInt>(convertInst->getFrom())->getValue();
+            sf.emplace_back(R5AsmStrangeFake(LI, {tmp, N(number)}));
+        } else {
+            sf.emplace_back(R5AsmStrangeFake(
+                MV, {V(convertInst->getName(), Float), V(convertInst->getFrom()->getName(), Int)}
             ));
         }
     } else {
@@ -931,28 +948,37 @@ void R5FakeSeihai::handleIMathInst(
 }
 
 /// 在栈上为name分配size字节大小的空间
-/// \param name
-/// \param size
-void R5FakeSeihai::allocateStackSpace(const string& name, uint64_t size)
+/// \param name 虚拟寄存器的名字
+/// \param size 要分配的大小
+void R5FakeSeihai::allocateStackSpace(const string& name, int64_t size)
 {
-    // TODO 实现4/8字节对齐
-    taichiMap[name] = taichiSize;
-    taichiSize += size;
+    taichiMap.allocate(name, size);
 }
 int64_t R5FakeSeihai::queryStackSpace(const string& name)
 {
-    return taichiMap.at(name);
+    return taichiMap.query(name);
 }
-
+/// 查询一个虚拟寄存器是不是alloca在栈上
+/// \param name 虚拟寄存器的名字
+/// \return 在栈上返回true，否则返回false
+bool R5FakeSeihai::queryInStackSpace(const string& name)
+{
+    return taichiMap.query(name) != -1;
+}
 /// 生成函数的返回标签名字
 /// \return 如你所愿
 string R5FakeSeihai::funcRetLabel()
 {
-    return ".LRET_" + thisFunc->getName();
+    return ".LRET_" + thisFunc->getName().substr(1);
 }
-bool R5FakeSeihai::queryInStackSpace(const string& name)
+
+string R5FakeSeihai::funcEntryLabel()
 {
-    return taichiMap.find(name) != taichiMap.end();
+    return ".LENT" + thisFunc->getName().substr(1);
+}
+string R5FakeSeihai::funcFirstBBLabel()
+{
+    return BN(thisFunc->getName(), "LEntry");
 }
 
 /// 生成一个内存中常亮的标签，存储常量值，并且返回这个标签的名字
@@ -962,8 +988,9 @@ bool R5FakeSeihai::queryInStackSpace(const string& name)
 template<class T>
 string R5FakeSeihai::C(T v)
 {
-    uint32_t word       = *(uint32_t*)&v;
-    string   labelName  = ".LC_" + thisFunc->getName() + "_" + std::to_string(extTempMemVarNum++);
+    uint32_t word = *(uint32_t*)&v;
+    string   labelName =
+        ".LC_" + thisFunc->getName().substr(1) + "_" + std::to_string(extTempMemVarNum++);
     constMem[labelName] = word;
     return labelName;
 }

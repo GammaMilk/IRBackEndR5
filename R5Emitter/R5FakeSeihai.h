@@ -9,6 +9,7 @@
 #include "../MiddleIR/MiddleIRInst.h"
 #include "R5AsmStrangeFake.h"
 #include "../MiddleIR/MiddleIRFuncDef.h"
+#include "R5TaichiMap.h"
 using namespace MiddleIR;
 
 namespace R5Emitter
@@ -37,11 +38,11 @@ private:
     std::unordered_map<string, uint32_t> constMem;
 
     // 太极图 表示alloca和spill中相对于sp的正偏移。
-    std::unordered_map<string, int64_t> taichiMap;
-    // 表示太极图部分（alloca和spill）的大小。
-    uint64_t taichiSize = 0;
+    // std::unordered_map<string, int64_t> taichiMap;
+    R5TaichiMap taichiMap;
+    // 一般的太极图我们不能满足了！我们需要新的太极图！
     // 分配一个栈空间。单位字节。按4字节对齐。
-    void allocateStackSpace(const string& name, uint64_t size);
+    void allocateStackSpace(const string& name, int64_t size);
     // 查询太极图中的偏移量。是sp的正偏移。
     int64_t queryStackSpace(const string& name);
     // 太极图中真的有吗？如有！
@@ -49,6 +50,10 @@ private:
 
     // 函数返回标签
     string funcRetLabel();
+    // 函数入口标签
+    string funcEntryLabel();
+    // 函数第一个基本块标签
+    string funcFirstBBLabel();
 
     const std::shared_ptr<MiddleIRFuncDef>& thisFunc;
 

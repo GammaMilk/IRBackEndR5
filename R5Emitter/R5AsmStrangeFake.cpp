@@ -106,7 +106,7 @@ string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
 string R5AsmStrangeFake::toString()
 {
     stringstream ss;
-    ss << FakeOPToString(fakeOP) << " ";
+    ss << FakeOPToString(fakeOP) << "\t";
     if (fakeOP == SW || fakeOP == LW || fakeOP == SD || fakeOP == LD || fakeOP == FLW ||
         fakeOP == FSW) {
         ss << operands[0]->toString() << ", ";

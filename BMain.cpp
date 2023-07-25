@@ -37,6 +37,29 @@ using tree::TerminalNode;
 using namespace MiddleIR;
 using MiddleIR::Optimizer::IROptimizer;
 
+void RISC_V_Backend(std::istream& in, std::ostream& out)
+{
+    // parse IR AST
+    ANTLRInputStream  input(in);
+    LLVMIRLexer       lexer(&input);
+    CommonTokenStream tokens(&lexer);
+    LLVMIRParser      parser(&tokens);
+    tree::ParseTree*  tree    = parser.compilationUnit();
+    auto              visitor = new MiddleIR::GenIRAST;
+    tree->accept(visitor);
+
+    // Optimizer
+    auto        irAST       = visitor->getAST();
+    auto        SPCopiedAST = make_shared<MiddleIRAST>(irAST);
+    uint64_t    opt         = IROptimizer::REDUNDANT_LOAD_ELIMINATION;
+    IROptimizer optimizer(SPCopiedAST, static_cast<IROptimizer::ENABLED_OPT>(opt));
+    optimizer.run();
+
+    // Emitter
+    auto emitter = new R5Emitter::R5IREmitter(SPCopiedAST);
+    emitter->build(out);
+}
+
 int main(int argc, const char** argv)
 {
     std::string inputFileName;
@@ -60,26 +83,12 @@ int main(int argc, const char** argv)
         return 0;
     }
     LOGD("File Fine." << inputFileName);
+    stringstream irStream;
+    irStream << inputStream.rdbuf();
 
-    // parse IR AST
-    ANTLRInputStream  input(inputStream);
-    LLVMIRLexer       lexer(&input);
-    CommonTokenStream tokens(&lexer);
-    LLVMIRParser      parser(&tokens);
-    tree::ParseTree*  tree    = parser.compilationUnit();
-    auto              visitor = new MiddleIR::GenIRAST;
-    tree->accept(visitor);
+    // -----------------  RISC-V Backend  -----------------
+    RISC_V_Backend(irStream, outputStream);
 
-    // Optimizer
-    auto irAST = visitor->getAST();
-    auto     SPCopiedAST = make_shared<MiddleIRAST>(irAST);
-    uint64_t opt = IROptimizer::REDUNDANT_LOAD_ELIMINATION;
-    IROptimizer optimizer(SPCopiedAST, static_cast<IROptimizer::ENABLED_OPT>(opt));
-    optimizer.run();
-
-    // Emitter
-    auto emitter = new R5Emitter::R5IREmitter(SPCopiedAST);
-    emitter->build(outputStream);
     outputStream.close();
     return 0;
 }
