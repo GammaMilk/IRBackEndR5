@@ -82,6 +82,7 @@ void R5FakeSeihai::emitFakeSeihai()
     this->blockStrangeFake.clear();
     this->taichiMap.clear();
     this->taichiSize = 0;
+    LOGD("\nFuncName: " << thisFunc->getName());
     for (const auto& bb : thisFunc->getBasicBlocks()) {
         emitBB(bb);   // bbName and bb itself will be added in this func.
         for (auto& t : blockStrangeFake.back()) { LOGD(t.toString()); }
@@ -112,7 +113,8 @@ void R5FakeSeihai::emitBB(const shared_ptr<MiddleIRBasicBlock>& bb)
     };
     for (; it1 != instructions.end(); moveNext()) {
         auto inst1 = *it1;
-        auto inst2 = *it2;
+        auto inst2 = inst1;
+        if (it2 != instructions.end()) inst2 = *it2;
         if (inst1->isAllocaInst()) handleAllocaInst(inst1);
         // Int Math
         else if (inst1->isMathInst())
@@ -245,11 +247,13 @@ void R5FakeSeihai::handleRetInst(
         // 先判断是不是立即数。
         auto fVal = retInst->getOpVal();
         if (fVal->isConst()) {
-            auto cf = std::dynamic_pointer_cast<R5IRValConstFloat>(fVal);
-            auto c  = L(C(cf->getWord()));
-            sf.emplace_back(R5AsmStrangeFake(FLW, {R(fa0), c}));
+            auto cf   = std::dynamic_pointer_cast<R5IRValConstFloat>(fVal);
+            auto c    = L(C(cf->getWord()));
+            auto addr = V(E(), Pointer);
+            sf.emplace_back(R5AsmStrangeFake(LLA, {addr, c}));
+            sf.emplace_back(R5AsmStrangeFake(FLW, {R(fa0), P(0), addr}));
         } else {
-            sf.emplace_back(R5AsmStrangeFake(FLW, {R(fa0), V(fVal->getName(), Float)}));
+            sf.emplace_back(R5AsmStrangeFake(MV, {R(fa0), V(fVal->getName(), Float)}));
         }
     } else if (retType == MiddleIRType::INT) {
         auto iVal = retInst->getOpVal();
@@ -257,7 +261,7 @@ void R5FakeSeihai::handleRetInst(
             auto ci = std::dynamic_pointer_cast<R5IRValConstInt>(iVal);
             sf.emplace_back(R5AsmStrangeFake(LI, {R(a0), N(ci->getValue())}));
         } else {
-            sf.emplace_back(R5AsmStrangeFake(LW, {R(a0), V(iVal->getName(), Int)}));
+            sf.emplace_back(R5AsmStrangeFake(MV, {R(a0), V(iVal->getName(), Int)}));
         }
     } else {
         RUNTIME_ERROR("他妈的不支持的返回值类型, 传了什么东西进来❤受不了了");
@@ -279,7 +283,7 @@ void R5FakeSeihai::handleCallInst(
     }
     useReg = fRegRes >= 0 && iRegRes >= 0;
     // 特判。如果是@llvm.memset.p0.i32(i32*, i8, i32, i1), 那么应该调用的是memset
-    if (callInst->getName() == "@llvm.memset.p0.i32") {
+    if (callInst->getFunc()->getName() == "@llvm.memset.p0.i32") {
         // a0-2: dst, val, len. val肯定是0. dst是指针，len是整数。
         // TODO 一会再写memset.
         auto dstTaichi = V(callInst->getArgs()[0]->getName(), Pointer);
@@ -294,6 +298,7 @@ void R5FakeSeihai::handleCallInst(
         YangReg fReg = fa0;
         YangReg iReg = a0;
         for (const auto& arg : callInst->getArgs()) {
+            // TODO: 参数可能是立即数。这里没有处理。
             if (arg->getType()->isFloat()) {
                 sf.emplace_back(R5AsmStrangeFake(MV, {R(fReg), V(arg->getName(), Float)}));
                 fReg = (YangReg)((int)fReg + 1);
@@ -303,6 +308,11 @@ void R5FakeSeihai::handleCallInst(
             }
         }
         sf.emplace_back(R5AsmStrangeFake(CALL, {L(callInst->getFunc()->getName())}));
+        if (callInst->getRetType() == MiddleIR::MiddleIRType::FLOAT) {
+            sf.emplace_back(R5AsmStrangeFake(MV, {V(callInst->getName(), Float), R(fa0)}));
+        } else if (callInst->getRetType() == MiddleIR::MiddleIRType::INT) {
+            sf.emplace_back(R5AsmStrangeFake(MV, {V(callInst->getName(), Int), R(a0)}));
+        }
     } else {
         // TODO.使用栈来传参罢。
     }
@@ -311,16 +321,29 @@ void R5FakeSeihai::handleGEPInst(
     vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1
 )
 {
-    auto                      gep   = std::dynamic_pointer_cast<GetElementPtrInst>(inst1);
-    auto                      type1 = gep->getType1();
-    auto                      from  = gep->getFrom();
-    std::shared_ptr<R5Taichi> f;
+    auto gep   = std::dynamic_pointer_cast<GetElementPtrInst>(inst1);
+    auto type1 = gep->getType1();
+    auto from  = gep->getFrom();
+
+    std::shared_ptr<R5Taichi> base;
+    auto                      to = V(gep->getName(), Pointer);
     if (from->getName()[0] == '%') {
-        f = V(from->getName(), Pointer);
+        if (queryInStackSpace(from->getName())) {
+            // on stack
+            int64_t o = queryStackSpace(from->getName());
+            base      = V(E(), Pointer);
+            sf.emplace_back(R5AsmStrangeFake(ADDI, {base, R(sp), P(o)}));
+        } else {
+            base = V(from->getName(), Pointer);
+        }
     } else {
         // 是标签
-        f = L(from->getName());
+        auto t = L(from->getName());
+        base   = V(E(), Pointer);
+        sf.emplace_back(R5AsmStrangeFake(LLA, {base, t}));
     }
+    // 此时，base存储的是基地址。
+
     // a GEP instruction like this:
     // %v1 = getelementptr [3 x [4 x i32]], [3 x [4 x i32]]* %v0, i32 0, i32 0, i32 %v0
     // type1 is [3 x [4 x i32]]
@@ -348,7 +371,6 @@ void R5FakeSeihai::handleGEPInst(
                     std::dynamic_pointer_cast<R5IRValConstInt>(idx)->getValue() * curShapeSizeBytes;
                 auto tmp3 = V(E(), Pointer);
                 sf.emplace_back(R5AsmStrangeFake(LI, {tmp3, P(tmp2)}));
-                tmp = V(E(), Pointer);
                 sf.emplace_back(R5AsmStrangeFake(ADD, {tmp, tmp, tmp3}));
             }
         } else {
@@ -365,7 +387,8 @@ void R5FakeSeihai::handleGEPInst(
                 sf.emplace_back(R5AsmStrangeFake(LI, {tmp4, P(offset)}));
                 // add
                 tmp = V(E(), Pointer);
-                sf.emplace_back(R5AsmStrangeFake(ADD, {tmp, tmp4, tmp2}));
+                sf.emplace_back(R5AsmStrangeFake(ADD, {tmp4, tmp4, tmp2}));
+                sf.emplace_back(R5AsmStrangeFake(ADD, {tmp, tmp4, base}));
             } else {
                 // tmp1=tmp+offset; tmp2=tmp1+idx*curShapeSizeBytes;
                 const std::shared_ptr<R5Taichi>& tmp2 = V(E(), Pointer);
@@ -379,6 +402,12 @@ void R5FakeSeihai::handleGEPInst(
                 sf.emplace_back(R5AsmStrangeFake(ADD, {tmp, tmp, tmp3}));
             }
         }
+    }
+    if (immSoFar) {
+        // 还有待处理的立即数。
+        sf.emplace_back(R5AsmStrangeFake(ADDI, {to, base, P(offset)}));
+    } else {
+        sf.emplace_back(R5AsmStrangeFake(MV, {to, tmp}));
     }
 }
 void R5FakeSeihai::handleBrInst(
@@ -458,8 +487,14 @@ void R5FakeSeihai::handleBitcastInst(
     auto bitCast = std::dynamic_pointer_cast<BitCastInst>(inst1);
     auto from    = bitCast->getFrom()->getName();
     auto to      = bitCast->getName();
-    // 直接mv
-    sf.emplace_back(R5AsmStrangeFake(MV, {V(to, Pointer), V(from, Pointer)}));
+    // 直接mv 错误的。需要判断类型。
+    if (queryInStackSpace(from)) {
+        // on stack
+        int64_t o = queryStackSpace(from);
+        sf.emplace_back(R5AsmStrangeFake(ADDI, {V(to, Pointer), R(sp), P(o)}));
+    } else {
+        sf.emplace_back(R5AsmStrangeFake(MV, {V(to, Pointer), V(from, Pointer)}));
+    }
 }
 void R5FakeSeihai::handleCvtInst(
     vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1
@@ -661,7 +696,7 @@ void R5FakeSeihai::handleStoreInst(
             auto   tmp       = V(E(), Pointer);
             sf.emplace_back(R5AsmStrangeFake(LLA, {tmp, L(newCLabel)}));
             rs = V(E(), Float);
-            sf.emplace_back(R5AsmStrangeFake(FLW, {rs, tmp}));
+            sf.emplace_back(R5AsmStrangeFake(FLW, {rs, P(0), tmp}));
         } else {
             auto tmp = V(E(), Int);
             // li
@@ -725,7 +760,7 @@ void R5FakeSeihai::handleLoadInst(
         sf.emplace_back(R5AsmStrangeFake(op, {rd, P(offset), R(sp)}));
     } else {
         // GetElementPtrInst的结果
-        sf.emplace_back(R5AsmStrangeFake(op, {rd, V(rsName, Pointer)}));
+        sf.emplace_back(R5AsmStrangeFake(op, {rd, P(0), V(rsName, Pointer)}));
     }
 }
 void R5FakeSeihai::handleAllocaInst(const shared_ptr<MiddleIRInst>& inst1)
@@ -767,7 +802,7 @@ void R5FakeSeihai::handleFMathInst(
         auto tmp = V(E(), Pointer);
         sf.emplace_back(R5AsmStrangeFake(LLA, {tmp, L(newCLabel)}));
         taichi1 = V(E(), Float);
-        sf.emplace_back(R5AsmStrangeFake(FLW, {taichi1, tmp}));
+        sf.emplace_back(R5AsmStrangeFake(FLW, {taichi1, P(0), tmp}));
     } else {
         taichi1 = V(op1->getName(), Float);
     }
@@ -776,7 +811,7 @@ void R5FakeSeihai::handleFMathInst(
         auto   tmp       = V(E(), Pointer);
         sf.emplace_back(R5AsmStrangeFake(LLA, {tmp, L(newCLabel)}));
         taichi2 = V(E(), Float);
-        sf.emplace_back(R5AsmStrangeFake(FLW, {taichi2, tmp}));
+        sf.emplace_back(R5AsmStrangeFake(FLW, {taichi2, P(0), tmp}));
     } else {
         taichi2 = V(op2->getName(), Float);
     }

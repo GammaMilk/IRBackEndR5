@@ -14,7 +14,7 @@ enum FakeOPs {
     // RV64I
     LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU, LW, SW, ADDIW, ADDW, SUBW, SLT, SLTU, LD, SD,
     // 64bit pointer
-    ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLLI, SRLI, SRAI, ANDI, ORI, XORI,
+    ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLLI, SRLI, SRAI, ANDI, ORI, XORI, ADDI,
     // RV64M
     MULW, DIVW, REMW, MUL, DIV, REM,
     // RV64F , convert

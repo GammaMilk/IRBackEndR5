@@ -78,6 +78,27 @@ public:
 };
 #define IR_INT_CONST(_VAL) std::make_shared<R5IRValConstInt>(_VAL)
 
+class R5IRValConstI1 : public R5IRValConst
+{
+public:
+    explicit R5IRValConstI1(int value_)
+        : R5IRValConst(spBoolType)
+        , _value(value_)
+    {
+    }
+    [[nodiscard]] bool needLUI() const { return false; }
+    [[nodiscard]] bool isZero() const { return _value == 0; }
+    [[nodiscard]] bool inBss() const { return isZero(); }
+    [[nodiscard]] int  getWord() const { return _value; }
+
+protected:
+    int _value;
+
+public:
+    [[nodiscard]] int getValue() const { return _value; }
+};
+#define IR_BOOL_CONST(_VAL) std::make_shared<R5IRValConstI1>(_VAL)
+
 class R5IRValConstFloat : public R5IRValConst
 {
 public:

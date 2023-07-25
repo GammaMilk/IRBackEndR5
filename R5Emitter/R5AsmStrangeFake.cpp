@@ -99,6 +99,7 @@ string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
     case MUL: return "mul";
     case DIV: return "div";
     case REM: return "rem";
+    case ADDI: return "addi";
     }
     return "{Unknown FakeOP} " + std::to_string(op);
 }
@@ -106,11 +107,19 @@ string R5AsmStrangeFake::toString()
 {
     stringstream ss;
     ss << FakeOPToString(fakeOP) << " ";
-    for (int i = 0; i < R5_MAX_ARG_NUM; i++) {
+    if (fakeOP == SW || fakeOP == LW || fakeOP == SD || fakeOP == LD || fakeOP == FLW ||
+        fakeOP == FSW) {
+        ss << operands[0]->toString() << ", ";
+        ss << operands[1]->toString() << "(";
+        ss << operands[2]->toString() << ")";
+        return ss.str();
+    }
+    if (defUse[0] != UNUSED) { ss << operands[0]->toString(); }
+    for (int i = 1; i < R5_MAX_ARG_NUM; i++) {
         if (defUse[i] == UNUSED)
             break;
         else {
-            ss << operands[i]->toString() << ", ";
+            ss << ", " << operands[i]->toString();
         }
     }
     return ss.str();

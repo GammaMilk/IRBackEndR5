@@ -62,8 +62,7 @@ private:
     void handleStoreInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleICmpNoBr(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleCvtInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
-    static void
-         handleBitcastInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
+    void handleBitcastInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleFCmpInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     static void handleBrInst(
         vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1, const string& funcName

@@ -696,10 +696,13 @@ std::any GenIRAST::visitConstant(LLVMIRParser::ConstantContext* context)
     // just visit the children
     return visitChildren(context);
 }
-[[deprecated("BoolConst is not implemented")]] std::any
-GenIRAST::visitBoolConst(LLVMIRParser::BoolConstContext* context)
+std::any GenIRAST::visitBoolConst(LLVMIRParser::BoolConstContext* context)
 {
-    return visitChildren(context);
+    auto boolString = context->getText();
+    bool boolVal    = boolString == "true";
+    auto boolConst  = IR_BOOL_CONST(boolVal);
+    lastVal         = std::move(boolConst);
+    return 0;
 }
 std::any GenIRAST::visitIntConst(LLVMIRParser::IntConstContext* context)
 {
