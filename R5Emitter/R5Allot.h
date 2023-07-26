@@ -9,6 +9,7 @@
 #include "R5Taichi.h"
 #include "R5AsmStrangeFake.h"
 #include <list>
+#include <unordered_map>
 namespace R5Emitter
 {
 class R5Allot
@@ -17,6 +18,7 @@ public:
     std::vector<R5Emitter::R5AsmStrangeFake>
     getfake(const std::list<std::vector<R5Emitter::R5AsmStrangeFake>>& blockStrangeFakeList)
     {
+
         std::vector<R5Emitter::R5AsmStrangeFake> processedList;
 
         for (const auto& blockStrangeFake : blockStrangeFakeList) {
@@ -28,13 +30,52 @@ public:
         return processedList;
     }
 
+
     struct Fakereg {
         std::string regName;
-        int         start;
-        int         end;
+        size_t      start;
+        size_t      end;
     };
+    // 用一个图来存储虚拟寄存器的起止位置
+    std::unordered_map<std::string, Fakereg> handleinst(R5AsmStrangeFake& instruction, int index)
+    {
+        std::unordered_map<std::string, Fakereg> virtualReg;
 
-    std::vector<Fakereg> linescan(std::vector<R5Emitter::R5AsmStrangeFake>& processedList) {}
+        for (int i = 0; i < 4; i++) {
+            if (instruction.defUse[i] != R5AsmStrangeFake::UNUSED) {
+                if (std::dynamic_pointer_cast<R5Taichi>(instruction.operands[i])) {
+                    std::string virtualRegName = instruction.operands[i]->toString();
+                    if (virtualReg.find(virtualRegName) == virtualReg.end()) {
+                        virtualReg[virtualRegName].start = index;
+                    }
+                    virtualReg[virtualRegName].end = index;
+                } else {
+                    // UNUSED,直接退
+                    break;
+                }
+            }
+        }
+
+        return virtualReg;
+    }
+
+
+    void fenkuai(std::list<std::vector<R5Emitter::R5AsmStrangeFake>> blockStrangeFake)
+    {
+        // 遍历一共多少个基本块
+        for (auto bbIt = blockStrangeFake.begin(); bbIt != blockStrangeFake.end(); ++bbIt) {
+            int                                       index           = 0;
+            std::vector<R5Emitter::R5AsmStrangeFake>& instructionList = *bbIt;
+            // 遍历基本块内的指令
+            for (auto instIt = instructionList.begin(); instIt != instructionList.end(); ++instIt) {
+                R5Emitter::R5AsmStrangeFake& instruction = *instIt;
+                // 记录起止
+                std::unordered_map<std::string, Fakereg> virtualRegGraph =
+                    handleinst(instruction, index);
+                index++;
+            }
+        }
+    }
 };
 
 }   // namespace R5Emitter

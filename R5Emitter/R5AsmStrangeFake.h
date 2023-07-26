@@ -47,6 +47,7 @@ struct R5AsmStrangeFake {
     enum DefUse { DEF, USE, UNUSED };
     DefUse defUse[4] = {UNUSED, UNUSED, UNUSED, UNUSED};
     // 对于带括号的指令，括号外边的写前边。比如sd r2, 0(r3)。写成sd, {r2,0,r3}
+    // 一条指令
     R5AsmStrangeFake(FakeOPs oPs, std::initializer_list<shared_ptr<R5Taichi>>&& operands_)
         : fakeOP(oPs)
     {
