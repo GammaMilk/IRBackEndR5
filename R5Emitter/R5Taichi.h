@@ -15,11 +15,12 @@ class R5Taichi
 {
 public:
     // 太极生两仪
-    enum Phase { Yin, Yang, Ru, Lai } phase;
+    enum Phase { Yin, Yang, Ru, Lai, Lai64 } phase;
     [[nodiscard]] inline bool isYang() const { return phase == Yang; }
     [[nodiscard]] inline bool isYin() const { return phase == Yin; }
     [[nodiscard]] inline bool isRu() const { return phase == Ru; }
     [[nodiscard]] inline bool isLai() const { return phase == Lai; }
+    [[nodiscard]] inline bool isLai64() const { return phase == Lai64; }
     virtual bool              operator==(const R5Taichi& rhs) const { return phase == rhs.phase; }
     virtual bool              operator!=(const R5Taichi& rhs) const { return !(rhs == *this); }
     explicit R5Taichi(Phase p)

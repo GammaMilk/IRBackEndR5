@@ -17,7 +17,7 @@ public:
 
 public:
     explicit R5Lai64(int64_t value_)
-        : R5Taichi(Lai)
+        : R5Taichi(Lai64)
         , value(value_)
     {
     }

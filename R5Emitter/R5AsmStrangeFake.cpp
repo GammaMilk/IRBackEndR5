@@ -6,6 +6,34 @@
 
 namespace R5Emitter
 {
+
+R5AsmStrangeFake::R5AsmStrangeFake(
+    FakeOPs oPs, std::initializer_list<shared_ptr<R5Taichi>>&& operands_
+)
+    : fakeOP(oPs)
+{
+    opNum = (int8_t)operands_.size();
+    int i = 0;
+    // 一般来讲，第一个都是def, 后面的都是use
+    // 特殊情况特殊处理。
+    for (auto& operand : operands_) {
+        if (i == 0) {
+            defUse[i] = DEF;
+        } else {
+            defUse[i] = USE;
+        }
+        operands[i++] = operand;
+    }
+    if (fakeOP == CALL || fakeOP == J || fakeOP == RET) {
+        for (int j = 0; defUse[j] != UNUSED; ++j) { defUse[j] = USE; }
+    }
+    if (fakeOP == BEQZ || fakeOP == BNEZ || fakeOP == BLEZ || fakeOP == BGEZ || fakeOP == BGTZ ||
+        fakeOP == BLTZ) {
+        defUse[0] = USE;
+    }
+    if (fakeOP == JAL && defUse[1] == UNUSED) { defUse[0] = USE; }
+}
+
 string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
 {
 
@@ -122,7 +150,24 @@ string R5AsmStrangeFake::toString()
             ss << ", " << operands[i]->toString();
         }
     }
+    // fcvt.w.s a5,fa5,rtz
+    if (fakeOP == FCVT_W_S) { ss << ", rtz"; }
     return ss.str();
+}
+std::forward_list<shared_ptr<R5Taichi>> R5AsmStrangeFake::getUsedRegs()
+{
+    std::forward_list<shared_ptr<R5Taichi>> ret;
+    for (int i = 0; i < R5_MAX_ARG_NUM; i++) {
+        if (defUse[i] == USE) { ret.push_front(operands[i]); }
+    }
+    return ret;
+}
+shared_ptr<R5Taichi> R5AsmStrangeFake::getDefReg()
+{
+    for (int i = 0; i < R5_MAX_ARG_NUM; i++) {
+        if (defUse[i] == DEF) { return operands[i]; }
+    }
+    return nullptr;
 }
 
 
