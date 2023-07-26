@@ -7,6 +7,7 @@
 #include "../R5Def.h"
 #include <list>
 #include <unordered_map>
+#include "stack"
 namespace R5Emitter
 {
 

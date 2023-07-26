@@ -8,6 +8,9 @@
 #include "R5Ru.h"
 #include "R5Lai.h"
 #include "R5Lai64.h"
+#include "R5TaichiMap.h"
+#include "R5Taichi.h"
+
 
 #define SP std::shared_ptr
 namespace R5Emitter

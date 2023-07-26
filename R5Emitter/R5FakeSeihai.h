@@ -10,6 +10,8 @@
 #include "R5AsmStrangeFake.h"
 #include "../MiddleIR/MiddleIRFuncDef.h"
 #include "R5TaichiMap.h"
+#include "R5TaichiMap.h"
+#include "R5Taichi.h"
 using namespace MiddleIR;
 
 namespace R5Emitter
