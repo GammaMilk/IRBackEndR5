@@ -10,6 +10,7 @@
 #include "R5AsmStrangeFake.h"
 #include "../MiddleIR/MiddleIRFuncDef.h"
 #include "R5TaichiMap.h"
+#include "../MiddleIR/MiddleIRAST.h"
 using namespace MiddleIR;
 
 namespace R5Emitter
@@ -17,7 +18,9 @@ namespace R5Emitter
 class R5FakeSeihai
 {
 public:
-    explicit R5FakeSeihai(const std::shared_ptr<MiddleIRFuncDef>& funcDef);
+    explicit R5FakeSeihai(
+        const std::shared_ptr<MiddleIRFuncDef>& funcDef, const std::shared_ptr<MiddleIRAST>& irast
+    );
     void emitFakeSeihai();
 
     std::list<string>                   bbNames;
@@ -55,7 +58,15 @@ private:
     // 函数第一个基本块标签
     string funcFirstBBLabel();
 
+    // 函数在栈上的参数区大小
+    int funcStackArgCount = 0;
+    // 函数的整数参数计数
+    int funcIntArgCount = 0;
+    // 函数的浮点参数计数
+    int funcFloatArgCount = 0;
+
     const std::shared_ptr<MiddleIRFuncDef>& thisFunc;
+    const std::shared_ptr<MiddleIRAST>&     ast;
 
     void emitBB(const std::shared_ptr<MiddleIRBasicBlock>& bb);
 
@@ -65,6 +76,7 @@ private:
     void handleAllocaInst(const shared_ptr<MiddleIRInst>& inst1);
     void handleLoadInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleStoreInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
+    void handleArgStoreInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleICmpNoBr(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleCvtInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleBitcastInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
@@ -75,6 +87,15 @@ private:
     void handleGEPInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleCallInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleRetInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
+
+    // 为了方便，这个函数用来l/s一个寄存器+偏移量的内存地址.
+    void accessStack(
+        vector<R5AsmStrangeFake>&   sf,
+        FakeOPs                     op,
+        const shared_ptr<R5Taichi>& op1,
+        int64_t                     offset,
+        YangReg                     st
+    );
 };
 
 }   // namespace R5Emitter

@@ -8,6 +8,19 @@ namespace R5Emitter
 {
 string R5Yang::toString() const
 {
+    return toString(reg);
+}
+bool R5Yang::operator==(const R5Taichi& rhs) const
+{
+    return R5Taichi::operator==(rhs) && reg == dynamic_cast<const R5Yang&>(rhs).reg;
+}
+bool R5Yang::operator!=(const R5Taichi& rhs) const
+{
+    return R5Taichi::operator!=(rhs) || reg != dynamic_cast<const R5Yang&>(rhs).reg;
+}
+string R5Yang::toString(YangReg reg)
+{
+
     switch (reg) {
     case zero: return "zero";
     case ra: return "ra";
@@ -73,14 +86,16 @@ string R5Yang::toString() const
     case fs9: return "fs9";
     case fs10: return "fs10";
     case fs11: return "fs11";
+    case YangRegCount: return "YangRegCount";
     }
 }
-bool R5Yang::operator==(const R5Taichi& rhs) const
-{
-    return R5Taichi::operator==(rhs) && reg == dynamic_cast<const R5Yang&>(rhs).reg;
-}
-bool R5Yang::operator!=(const R5Taichi& rhs) const
-{
-    return R5Taichi::operator!=(rhs) || reg != dynamic_cast<const R5Yang&>(rhs).reg;
-}
+YangReg YangRegs[YangRegCount] = {
+    zero,                 // 零寄存器属金，金性刚硬，坚不可摧
+    ra,   sp,  gp,  tp,   // 栈帧和全局指针属土，土性厚重，沉稳沉着
+    t0,   t1,  t2,  t3,  t4,  t5,  t6,        // t寄存器属木，木性刚健，生长繁茂
+    a0,   a1,  a2,  a3,  a4,  a5,  a6,  a7,   // a寄存器属火，火性炎热，烧灼燃烧
+    s0,   s1,  s2,  s3,  s4,  s5,  s6,  s7,  s8,  s9,  s10,  s11,   // s寄存器属水，水性柔润，滋润滋养
+    ft0,  ft1, ft2, ft3, ft4, ft5, ft6, ft7, ft8, ft9, ft10, ft11, fa0, fa1, fa2,  fa3,
+    fa4,  fa5, fa6, fa7, fs0, fs1, fs2, fs3, fs4, fs5, fs6,  fs7,  fs8, fs9, fs10, fs11,
+};
 }   // namespace R5Emitter

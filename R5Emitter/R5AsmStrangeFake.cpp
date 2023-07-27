@@ -31,6 +31,7 @@ R5AsmStrangeFake::R5AsmStrangeFake(
         fakeOP == BLTZ) {
         defUse[0] = USE;
     }
+    if (fakeOP == SW || fakeOP == FSW || fakeOP == SD) { defUse[0] = USE; }
     if (fakeOP == JAL && defUse[1] == UNUSED) { defUse[0] = USE; }
 }
 

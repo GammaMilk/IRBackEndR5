@@ -15,8 +15,13 @@ namespace MiddleIR
 class MiddleIRFuncDecl : public MiddleIRVal
 {
 protected:
-    SPType                   _retType;
-    std::vector<SPType>      _params_types;
+    SPType              _retType;
+    std::vector<SPType> _params_types;
+
+public:
+    [[nodiscard]] const vector<SPType>& getParamsTypes() const { return _params_types; }
+
+protected:
     std::vector<std::string> _params_names;
 
 public:

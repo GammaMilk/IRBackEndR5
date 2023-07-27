@@ -8,6 +8,8 @@
 #include "R5Ru.h"
 #include "R5Lai.h"
 #include "R5Lai64.h"
+#include "R5RegAllocator.h"
+#include "R5Utils.h"
 
 #define SP std::shared_ptr
 namespace R5Emitter
@@ -22,6 +24,13 @@ static inline shared_ptr<R5Taichi> V(const string& v, YinType yinType)
     return make_shared<R5Yin>(v, yinType);
 }
 
+/// 检查一个立即数在s/l指令中是否可以直接使用
+/// \param p
+/// \return
+static inline bool couldLoadWithRegImm(int64_t p)
+{
+    return -2048 <= p && p <= 2047;
+}
 
 /// 生成一个标签
 /// \param l 标签名字
@@ -75,8 +84,11 @@ inline string R5FakeSeihai::E()
 
 /// 从IR的函数定义构造一个假圣杯
 /// \param funcDef IR函数定义
-R5FakeSeihai::R5FakeSeihai(const shared_ptr<MiddleIRFuncDef>& funcDef)
+R5FakeSeihai::R5FakeSeihai(
+    const std::shared_ptr<MiddleIRFuncDef>& funcDef, const std::shared_ptr<MiddleIRAST>& irast
+)
     : thisFunc(funcDef)
+    , ast(irast)
 {
 }
 
@@ -86,12 +98,25 @@ void R5FakeSeihai::emitFakeSeihai()
     this->bbNames.clear();
     this->extTempVarNum = 0;
     this->blockStrangeFake.clear();
+    using fu = std::unordered_map<string, std::set<YangReg>>;
+    fu funcUsedReg;
+    // 遍历所有函数声明和函数调用。
+    for (auto& decl : ast->funcDecls) {
+        funcUsedReg[decl->getName()] = funcCallUsedReg(decl->getName(), ast);
+    }
+    for (auto& def : ast->funcDefs) {
+        funcUsedReg[def->getName()] = funcCallUsedReg(def->getName(), ast);
+    }
     LOGW("FuncName: " << thisFunc->getName());
     for (const auto& bb : thisFunc->getBasicBlocks()) {
         emitBB(bb);   // bbName and bb itself will be added Into blockStrangeFake in this func.
-        LOGW("BBName: " << bbNames.back());
-        for (auto& t : blockStrangeFake.back()) { LOGD(t.toString()); }
+        LOGW(bbNames.back());
+        int i = 0;
+        for (auto& t : blockStrangeFake.back()) { LOGD(i++ << "\t" << t.toString()); }
     }
+    R5RegAllocator regAllocator(bbNames, blockStrangeFake, taichiMap, funcUsedReg);
+
+
     // 处理返回语句。我的方法是新建立一个funcRetLabel()标签(基本块)，
     // 然后在每个函数的最后一条指令之后插入一条J指令，跳转到。
 }
@@ -296,31 +321,62 @@ void R5FakeSeihai::handleCallInst(
         sf.emplace_back(R5AsmStrangeFake(MV, {R(a1), R(zero)}));
         int len = std::dynamic_pointer_cast<R5IRValConstInt>(callInst->getArgs()[2])->getValue();
         sf.emplace_back(R5AsmStrangeFake(LI, {R(a2), N(len)}));
-        sf.emplace_back(R5AsmStrangeFake(CALL, {L("memset")}));
+        sf.emplace_back(R5AsmStrangeFake(CALL, {L("@memset")}));
         return;
     }
-    if (useReg) {
-        YangReg fReg = fa0;
-        YangReg iReg = a0;
-        for (const auto& arg : callInst->getArgs()) {
-            // TODO: 参数可能是立即数。这里没有处理。
-            if (arg->getType()->isFloat()) {
-                sf.emplace_back(R5AsmStrangeFake(MV, {R(fReg), V(arg->getName(), Float)}));
-                fReg = (YangReg)((int)fReg + 1);
-            } else if (arg->getType()->isPointer() || arg->getType()->isInt()) {
-                sf.emplace_back(R5AsmStrangeFake(MV, {R(iReg), V(arg->getName(), Int)}));
-                iReg = (YangReg)((int)iReg + 1);
-            }
+    YangReg fReg    = fa0;
+    YangReg iReg    = a0;
+    int     fArgNum = 8 - fRegRes;   // 浮点参数个数
+    int     iArgNum = 8 - iRegRes;   // 整数参数个数
+    // 需要额外的栈空间大小（单位：字节）
+    int sSizeByte = (fArgNum > 8 ? fArgNum - 8 : 0) + (iArgNum > 8 ? iArgNum - 8 : 0) * 8;
+    // 不行。我应该先进行实参的标号。
+    int argNums[callInst->getArgs().size()];
+    int ino = 0;
+    int fno = 0;
+    for (size_t i = 0; i < callInst->getArgs().size(); i++) {
+        if (callInst->getArgs()[i]->getType()->isFloat()) {
+            argNums[i] = fno++;
+        } else {
+            argNums[i] = ino++;
         }
-        sf.emplace_back(R5AsmStrangeFake(CALL, {L(callInst->getFunc()->getName())}));
-        if (callInst->getRetType() == MiddleIR::MiddleIRType::FLOAT) {
-            sf.emplace_back(R5AsmStrangeFake(MV, {V(callInst->getName(), Float), R(fa0)}));
-        } else if (callInst->getRetType() == MiddleIR::MiddleIRType::INT) {
-            sf.emplace_back(R5AsmStrangeFake(MV, {V(callInst->getName(), Int), R(a0)}));
-        }
-    } else {
-        // TODO.使用栈来传参罢。
     }
+    // 此时，argNums[i]表示第i个参数在具体类型中的序号。比如参数列表是int,int,float,float,int
+    // 则argNums[0]=0, argNums[1]=1, argNums[2]=0, argNums[3]=1, argNums[4]=2
+    // TODO 压栈操作
+
+    for (const auto& arg : callInst->getArgs()) {
+        if (arg->getType()->isFloat()) {
+            if (arg->isConst()) {
+                // 立即数 先存到内存里，然后再加载到寄存器里。
+                auto cf   = std::dynamic_pointer_cast<R5IRValConstFloat>(arg);
+                auto c    = L(C(cf->getWord()));
+                auto addr = V(E(), Pointer);
+                sf.emplace_back(R5AsmStrangeFake(LLA, {addr, c}));
+                sf.emplace_back(R5AsmStrangeFake(FLW, {R(fReg), P(0), addr}));
+            } else {
+                sf.emplace_back(R5AsmStrangeFake(MV, {R(fReg), V(arg->getName(), Float)}));
+            }
+            fReg = (fReg <= fa7) ? (YangReg)((int)fReg + 1) : fa7;
+        } else if (arg->getType()->isPointer() || arg->getType()->isInt()) {
+            if (arg->isConst()) {
+                // pointer不可能是立即数。
+                auto intVal = std::dynamic_pointer_cast<R5IRValConstInt>(arg);
+                IR_ASSERT(intVal != nullptr, "他妈的Pointer不可能是立即数啊❤受不了了");
+                sf.emplace_back(R5AsmStrangeFake(LI, {R(iReg), N(intVal->getValue())}));
+            } else {
+                sf.emplace_back(R5AsmStrangeFake(MV, {R(iReg), V(arg->getName(), Int)}));
+            }
+            iReg = (iReg <= a7) ? (YangReg)((int)iReg + 1) : a7;
+        }
+    }
+    sf.emplace_back(R5AsmStrangeFake(CALL, {L(callInst->getFunc()->getName())}));
+    if (callInst->getRetType() == MiddleIR::MiddleIRType::FLOAT) {
+        sf.emplace_back(R5AsmStrangeFake(MV, {V(callInst->getName(), Float), R(fa0)}));
+    } else if (callInst->getRetType() == MiddleIR::MiddleIRType::INT) {
+        sf.emplace_back(R5AsmStrangeFake(MV, {V(callInst->getName(), Int), R(a0)}));
+    }
+    // TODO 恢复sp
 }
 void R5FakeSeihai::handleGEPInst(
     vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1
@@ -675,15 +731,22 @@ void R5FakeSeihai::handleICmpNoBr(
         }
     }
 }
+
+// 这个函数特殊。因为他要处理函数参数列表。
 void R5FakeSeihai::handleStoreInst(
     vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1
 )
 {
-    auto    storeInst = std::dynamic_pointer_cast<StoreInst>(inst1);
-    auto    from      = storeInst->getFrom();
-    auto    to        = storeInst->getTo();
-    bool    isFloat   = from->getType()->isFloat();
-    FakeOPs op        = isFloat ? FSW : SW;
+    auto storeInst = std::dynamic_pointer_cast<StoreInst>(inst1);
+    auto from      = storeInst->getFrom();
+    // 短路处理from事arg的情况。
+    if (from->getName().substr(0, 5) == "%arg_") {
+        handleArgStoreInst(sf, storeInst);
+        return;
+    }
+    auto    to      = storeInst->getTo();
+    bool    isFloat = from->getType()->isFloat();
+    FakeOPs op      = isFloat ? FSW : SW;
     // 草，好像有bug。要是存储的是个指针，就不能用FSW/SW，就得用SD
     if (from->getType()->isPointer()) { op = SD; }
     shared_ptr<R5Taichi> rs;
@@ -728,9 +791,8 @@ void R5FakeSeihai::handleStoreInst(
         rs = V(from->getName(), isFloat ? Float : Int);
     }
     if (onStack) {
-        // TODO 检查rt是不是超出范围了
         int64_t of = (dynamic_pointer_cast<R5Lai64>(rt))->value;
-        if (of >= -2048 && of <= 2047) {
+        if (couldLoadWithRegImm(of)) {
             // 可以用SW
             sf.emplace_back(R5AsmStrangeFake(op, {rs, rt, R(sp)}));
         } else {
@@ -740,13 +802,52 @@ void R5FakeSeihai::handleStoreInst(
             sf.emplace_back(R5AsmStrangeFake(op, {rs, P(0), tmp0}));
         }
     } else if (isGlobal) {
-        // lla+fsw/sw
+        // lla+fsw/sw，此时rt是个label
         auto tmp = V(E(), Pointer);
         sf.emplace_back(R5AsmStrangeFake(LLA, {tmp, rt}));
         sf.emplace_back(R5AsmStrangeFake(op, {rs, P(0), tmp}));
     } else {
         // GetElementPtrInst的结果
         sf.emplace_back(R5AsmStrangeFake(op, {rs, P(0), rt}));
+    }
+}
+
+void R5FakeSeihai::handleArgStoreInst(
+    vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1
+)
+{
+    auto storeInst  = dynamic_pointer_cast<StoreInst>(inst1);
+    auto valType    = storeInst->getFrom()->getType()->type;
+    auto fromName   = storeInst->getFrom()->getName();
+    auto toName     = storeInst->getTo()->getName();
+    auto destOffset = queryStackSpace(toName);
+    if (valType == MiddleIR::MiddleIRType::INT || valType == MiddleIR::MiddleIRType::POINTER) {
+        const auto saveInst = valType == MiddleIR::MiddleIRType::POINTER ? SD : SW;
+        const auto loadInst = valType == MiddleIR::MiddleIRType::POINTER ? LD : LW;
+        if (funcIntArgCount < 8) {
+            // 将a0+funcIntArgCount
+            accessStack(sf, saveInst, R((YangReg)(a0 + funcIntArgCount)), destOffset, sp);
+        } else {
+            // 来吧，**栈
+            // 我们通过s0寻址
+            int64_t argOffs0 = funcStackArgCount * 8;
+            auto    tmp      = V(E(), Pointer);
+            accessStack(sf, loadInst, tmp, argOffs0, s0);
+            accessStack(sf, saveInst, tmp, destOffset, sp);
+            funcStackArgCount++;
+        }
+        funcIntArgCount++;
+    } else if (valType == MiddleIR::MiddleIRType::FLOAT) {
+        if (funcFloatArgCount < 8) {
+            accessStack(sf, FSW, R((YangReg)(fa0 + funcFloatArgCount)), destOffset, sp);
+        } else {
+            int64_t argOffs0 = funcStackArgCount * 8;
+            auto    tmp      = V(E(), Pointer);
+            accessStack(sf, LW, tmp, argOffs0, s0);
+            accessStack(sf, SW, tmp, destOffset, sp);
+            funcStackArgCount++;
+        }
+        funcFloatArgCount++;
     }
 }
 void R5FakeSeihai::handleLoadInst(
@@ -773,8 +874,14 @@ void R5FakeSeihai::handleLoadInst(
         sf.emplace_back(R5AsmStrangeFake(op, {rd, P(0), tmp}));
     } else if (onStack) {
         // 栈变量
-        uint64_t offset = queryStackSpace(rsName);
-        sf.emplace_back(R5AsmStrangeFake(op, {rd, P(offset), R(sp)}));
+        int64_t offset = queryStackSpace(rsName);
+        if (couldLoadWithRegImm(offset)) {
+            sf.emplace_back(R5AsmStrangeFake(op, {rd, P(offset), R(sp)}));
+        } else {
+            auto tmp = V(E(), Pointer);
+            sf.emplace_back(R5AsmStrangeFake(LI, {tmp, P(offset)}));
+            sf.emplace_back(R5AsmStrangeFake(op, {rd, P(0), tmp}));
+        }
     } else {
         // GetElementPtrInst的结果
         sf.emplace_back(R5AsmStrangeFake(op, {rd, P(0), V(rsName, Pointer)}));
@@ -783,17 +890,18 @@ void R5FakeSeihai::handleLoadInst(
 void R5FakeSeihai::handleAllocaInst(const shared_ptr<MiddleIRInst>& inst1)
 {
     // 更新太极图，把虚拟寄存器和栈地址绑定
-    auto     allocaInst = std::dynamic_pointer_cast<AllocaInst>(inst1);
-    auto     name       = allocaInst->getName();
-    uint64_t size;
-    if (allocaInst->getType()->isFloat() || allocaInst->getType()->isInt())
+    auto    allocaInst = std::dynamic_pointer_cast<AllocaInst>(inst1);
+    auto    innerType  = dynamic_pointer_cast<PointerType>(inst1->getType())->getElementType();
+    auto    name       = allocaInst->getName();
+    int64_t size;
+    if (innerType->isFloat() || innerType->isInt())
         size = 4;
-    else if (allocaInst->getType()->isPointer())
+    else if (innerType->isPointer())
         size = 8;
-    else if (allocaInst->getType()->isArray()) {
-        auto arrayTypeI = allocaInst->getType();
-        auto arrayType  = std::dynamic_pointer_cast<ArrayType>(arrayTypeI);
-        size            = arrayType->getSizeBytes();
+    else if (innerType->isArray()) {
+        const auto& arrayTypeI = innerType;
+        auto        arrayType  = std::dynamic_pointer_cast<ArrayType>(arrayTypeI);
+        size                   = (int64_t)arrayType->getSizeBytes();
     } else
         RUNTIME_ERROR("他妈的不支持的alloca类型, 传了什么东西进来❤受不了了");
     allocateStackSpace(name, size);
@@ -979,6 +1087,26 @@ string R5FakeSeihai::funcEntryLabel()
 string R5FakeSeihai::funcFirstBBLabel()
 {
     return BN(thisFunc->getName(), "LEntry");
+}
+
+void R5FakeSeihai::accessStack(
+    vector<R5AsmStrangeFake>&   sf,
+    FakeOPs                     op,
+    const shared_ptr<R5Taichi>& op1,
+    int64_t                     offset,
+    YangReg                     st
+)
+{
+    if (couldLoadWithRegImm(offset)) {
+        // 可以用SW
+        sf.emplace_back(R5AsmStrangeFake(op, {op1, P(offset), R(st)}));
+    } else {
+        // 先LI，再SW
+        auto tmp0 = V(E(), Pointer);
+        sf.emplace_back(R5AsmStrangeFake(LI, {tmp0, P(offset)}));
+        sf.emplace_back(R5AsmStrangeFake(ADD, {tmp0, tmp0, R(st)}));
+        sf.emplace_back(R5AsmStrangeFake(op, {op1, P(0), tmp0}));
+    }
 }
 
 /// 生成一个内存中常亮的标签，存储常量值，并且返回这个标签的名字

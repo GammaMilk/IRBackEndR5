@@ -23,18 +23,23 @@ enum YangReg { zero,                                     // 零寄存器属金�
         ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7, ft8, ft9, ft10, ft11,
         fa0, fa1, fa2, fa3, fa4, fa5, fa6, fa7,
         fs0, fs1, fs2, fs3, fs4, fs5, fs6, fs7, fs8, fs9, fs10, fs11,
+        YangRegCount
 } ;
+
+extern YangReg YangRegs[YangRegCount];
 // clang-format on
 
 class R5Yang : public R5Taichi
 {
 public:
     [[nodiscard]] string toString() const override;
+    static string        toString(YangReg reg);
 
 public:
     YangReg            reg;
     bool               operator==(const R5Taichi& rhs) const override;
     bool               operator!=(const R5Taichi& rhs) const override;
+
     static inline bool isCallerSave(size_t reg)
     {
         return (reg >= t0 && reg <= t6) || (reg >= a0 && reg <= a7) ||
