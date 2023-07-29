@@ -98,7 +98,10 @@ int64_t R5TaichiMap::allocateImpl(const std::string& variableName, int64_t size)
 
 int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
 {
-    return invert(allocateImpl(variableName, size));
+    auto x = allocateImpl(variableName, size);
+    if (x < 0) return x;
+    allocatedSize[variableName] = size;
+    return invert(x, size);
 }
 
 void R5TaichiMap::release(const std::string& variableName)
@@ -107,6 +110,7 @@ void R5TaichiMap::release(const std::string& variableName)
     if (it != allocations.end()) {
         it->second->allocated = false;
         allocations.erase(it);
+        allocatedSize.erase(variableName);
     } else {
         std::cout << "Error: Variable '" << variableName << "' has not been allocated.\n";
         // LOGE("Variable '" + variableName + "' has not been allocated.");
@@ -135,7 +139,10 @@ void R5TaichiMap::release(const std::string& variableName)
 int64_t R5TaichiMap::query(const std::string& variableName)
 {
     auto it = allocations.find(variableName);
-    return (it != allocations.end()) ? invert(it->second->address) : -1;
+    if (it != allocations.end()) {
+        return invert(it->second->address, allocatedSize.at(variableName));
+    } else
+        return -1;
 }
 
 int64_t R5TaichiMap::getSize() const
@@ -162,13 +169,10 @@ R5TaichiMap::R5TaichiMap(int64_t preserveSize_)
     , inverted(true)
 {
 }
-int64_t R5TaichiMap::invert(int64_t offset) const
+int64_t R5TaichiMap::invert(int64_t offset, int64_t size) const
 {
     if (inverted) {
-        int64_t r8 = offset % 8;
-        int64_t d8 = offset - r8;
-        d8         = -d8 - 8;
-        return -preserveSize + d8 + r8;
+        return -preserveSize - offset - size;
     } else {
         return offset;
     }

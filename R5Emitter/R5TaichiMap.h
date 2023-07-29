@@ -33,8 +33,9 @@ private:
     bool    inverted;       // 是否反转（从-16开始向下分配）
     int64_t preserveSize;   // 保留的内存大小(保存s0&ra)
 
-    int64_t invert(int64_t offset) const;
+    int64_t                             invert(int64_t offset, int64_t size) const;
     int64_t allocateImpl(const std::string& variableName, int64_t size);
+    std::unordered_map<string, int64_t> allocatedSize;   // 变量名已经分配的空间大小
 
 public:
     explicit R5TaichiMap();

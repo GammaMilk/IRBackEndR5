@@ -478,13 +478,17 @@ void R5RegAllocator::doAllocate(int bbIndex)
             }
         }
         // 将结果写入dest数组。
+
         dest.push_back(inst);
     }
     // print the result
     // for (int i = 0; i < dest.size(); i++) {
     //     std::cout << i << "\t" << dest[i].toString() << std::endl;
     // }
-    totalUsedRegs = dispatcher.getTotalUsedRegs();
+    //    totalUsedRegs = dispatcher.getTotalUsedRegs();
+    // ∪
+    auto t = dispatcher.getTotalUsedRegs();
+    totalUsedRegs.merge(t);
     delete[] regInStream;
     delete[] regOutStream;
 }
