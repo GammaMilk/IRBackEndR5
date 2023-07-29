@@ -3,19 +3,56 @@
 //
 
 #include "R5RegAllocator.h"
+#include "R5RegDispatcher.h"
+#include "R5Lai64.h"
+#include "../R5Logger.h"
 
 #include <utility>
+#include <iostream>
+#include <algorithm>
 
 namespace R5Emitter
 {
+/// 检查一个立即数在s/l指令中是否可以直接使用
+/// \param p
+/// \return
+static inline bool couldLoadWithRegImm(int64_t p)
+{
+    return -2048 <= p && p <= 2047;
+}
+/// 生成一个物理寄存器(Float/Long)
+/// \param r r0/r1/r2...
+/// \return 太极
+static inline shared_ptr<R5Taichi> R(YangReg r)
+{
+    return make_shared<R5Yang>(r);
+}
+/// 生成一个立即数(64位)
+/// \param v 数
+/// \return 太极
+static inline shared_ptr<R5Taichi> P(uint64_t v)
+{
+    return make_shared<R5Lai64>(v);
+}
+static inline void accessStack(
+    std::vector<R5AsmStrangeFake>& dest, FakeOPs op, YangReg val1, int64_t val2, YangReg tmpReg
+)
+{
+    if (couldLoadWithRegImm(val2)) {
+        dest.emplace_back(R5AsmStrangeFake(op, {R(val1), P(val2), R(sp)}));
+    } else {
+        dest.emplace_back(R5AsmStrangeFake(LI, {R(tmpReg), P(val2)}));
+        dest.emplace_back(R5AsmStrangeFake(op, {R(val1), R(tmpReg), R(sp)}));
+    }
+}
 R5RegAllocator::R5RegAllocator(
-    const std::list<string>&                        bbNames_,
-    const std::list<std::vector<R5AsmStrangeFake>>& bbCodes_,
+    const std::vector<string>&                        bbNames_,
+    const std::vector<std::vector<R5AsmStrangeFake>>& bbCodes_,
     R5TaichiMap&                                    taichiMap_,
-    fu                                              fu_
+    const fu&                                         fu_
 )
     : taichiMap(taichiMap_)
-    , _fu(std::move(fu_))
+    , _fu(fu_)
 {
     bbNames = std::vector<string>(bbNames_.begin(), bbNames_.end());
     bbCodes = std::vector<std::vector<R5AsmStrangeFake>>(bbCodes_.begin(), bbCodes_.end());
@@ -73,7 +110,27 @@ struct Phoenix {
         }
     }
     [[maybe_unused]] inline bool isBorn(int j) { return false; }
-    inline bool                  isFree(int j)
+    inline bool                  isNowDying(int j)
+    {
+        if (ls.empty()) {
+            return false;
+        } else {
+            // 遍历所有ls，如果相等，就是现在正在死亡
+            return std::any_of(ls.begin(), ls.end(), [j](const lsPair& p) {
+                return p.second == j;
+            });
+        }
+    }
+    inline bool isNowBearing(int j)
+    {
+        if (ls.empty()) {
+            return false;
+        } else {
+            // 遍历所有ls，如果相等，就是现在正在死亡
+            return std::any_of(ls.begin(), ls.end(), [j](const lsPair& p) { return p.first == j; });
+        }
+    }
+    inline bool isFree(int j)
     {
         if (ls.empty()) {
             return true;
@@ -100,38 +157,49 @@ struct Phoenix {
         }
     }
 };
-struct MachineRegPri {
-    int    pri;
-    string name;
-    MachineRegPri(int pri_, string name_)
-        : pri(pri_)
-        , name(std::move(name_))
-    {
-    }
-    bool operator<(const MachineRegPri& rhs) const { return pri < rhs.pri; }
-};
 
-// 优先级顺序，整数：a4-a7, a0-a3, t0-t6, s0-s11, fs0-fs11
-// 浮点：fa4-fa7, fa0-fa3, ft0-ft6, fs0-fs11
-std::set<MachineRegPri> integerRegAva{
-    {0, "a4"}, {0, "a5"}, {0, "a6"}, {0, "a7"}, {1, "a0"},  {1, "a1"},  {1, "a2"},
-    {1, "a3"}, {2, "t0"}, {2, "t1"}, {2, "t2"}, {2, "t3"},  {2, "t4"},  {2, "t5"},
-    {2, "t6"}, {3, "s0"}, {3, "s1"}, {3, "s2"}, {3, "s3"},  {3, "s4"},  {3, "s5"},
-    {3, "s6"}, {3, "s7"}, {3, "s8"}, {3, "s9"}, {3, "s10"}, {3, "s11"},
-};
-std::set<MachineRegPri> floatRegAva{
-    {0, "fa4"}, {0, "fa5"}, {0, "fa6"}, {0, "fa7"}, {1, "fa0"},  {1, "fa1"},  {1, "fa2"},
-    {1, "fa3"}, {2, "ft0"}, {2, "ft1"}, {2, "ft2"}, {2, "ft3"},  {2, "ft4"},  {2, "ft5"},
-    {2, "ft6"}, {3, "fs0"}, {3, "fs1"}, {3, "fs2"}, {3, "fs3"},  {3, "fs4"},  {3, "fs5"},
-    {3, "fs6"}, {3, "fs7"}, {3, "fs8"}, {3, "fs9"}, {3, "fs10"}, {3, "fs11"},
-};
 
-void R5RegAllocator::doAllocate(int i)
+void R5RegAllocator::doAllocate(int bbIndex)
 {
-    auto& bb   = bbCodes[i];
-    auto& dest = allocatedCodes[i];
+    auto& bb   = bbCodes[bbIndex];
+    auto& dest = allocatedCodes[bbIndex];
     // 构建每个寄存器的lifespan。（unordered_map)
     std::unordered_map<string, Phoenix> lifespan;
+
+    //    // 预处理。先处理mv a0,%v3此类情况。这种直接将a0绑定到%v3上。
+    //    std::unordered_map<string, shared_ptr<R5Yang>> argBinding;
+    //    // 倒序遍历。如果出现了mv a0,%v3，那么就将a0绑定到%v3上。出现call时，清空argBinding。
+    //    for (int j = (int)bb.size() - 1; j >= 0; --j) {
+    //        auto& inst = bb[j];
+    //        if (inst.fakeOP == CALL) {
+    //            argBinding.clear();
+    //        } else if (inst.fakeOP == MV) {
+    //            auto& dst = inst.operands[0];
+    //            auto& src = inst.operands[1];
+    //            if(auto srcV = dynamic_pointer_cast<R5Yin>(src)) {
+    //                if(auto dstR = dynamic_pointer_cast<R5Yang>(dst)) {
+    //                    if(argBinding.find(srcV->toString()) == argBinding.end()) {
+    //                        argBinding[srcV->toString()] = dstR;
+    //                    }
+    //                }
+    //            }
+    //        }
+    //        // 替换。
+    //        for (auto& op : inst.operands) {
+    //            if (auto opV = dynamic_pointer_cast<R5Yin>(op)) {
+    //                if (argBinding.find(opV->toString()) != argBinding.end()) {
+    //                    op = argBinding[opV->toString()];
+    //                }
+    //            }
+    //        }
+    //    }
+    //    argBinding.clear();
+    // 预处理结束。
+
+    // 打印替换结果。
+    //    for (int i = 0; i < bb.size(); i++) {
+    //        std::cout << i << ":\t" << bb[i].toString() << std::endl;
+    //    }
     // 倒序扫描基本块，构建lifespan
     for (int j = (int)bb.size() - 1; j >= 0; --j) {
         auto inst = bb[j];
@@ -154,19 +222,21 @@ void R5RegAllocator::doAllocate(int i)
                 lifespan[R5Yang::toString(t)].death(j);
             }
         }
-        // 死
-        for (const auto& r1 : use) {
-            string name;
-            if (auto ur = dynamic_pointer_cast<R5Yang>(r1)) name = ur->toString();
-            if (auto ur2 = dynamic_pointer_cast<R5Yin>(r1)) name = ur2->toString();
-            if (!name.empty()) lifespan[name].death(j);
-        }
+        // 应该先生而后死，所以先处理生存。
+        // 想想mv a0,a0这种情况，
         // 生
         if (def) {
             string name;
             if (auto d = dynamic_pointer_cast<R5Yang>(def)) name = d->toString();
             if (auto d2 = dynamic_pointer_cast<R5Yin>(def)) name = d2->toString();
             if (!name.empty()) lifespan[name].birth(j);
+        }
+        // 死
+        for (const auto& r1 : use) {
+            string name;
+            if (auto ur = dynamic_pointer_cast<R5Yang>(r1)) name = ur->toString();
+            if (auto ur2 = dynamic_pointer_cast<R5Yin>(r1)) name = ur2->toString();
+            if (!name.empty()) lifespan[name].death(j);
         }
     }
     // 在lifespan 中 去除zero, sp, ra, s0
@@ -186,17 +256,237 @@ void R5RegAllocator::doAllocate(int i)
             if (death == -1) death = (int)bb.size() - 1;
         }
     }
+    // 合并相邻的生死段。(1,2)(2,3) -> (1,3) 但是(1,3)(4,5)不合并。（有可能有问题，感觉上）
+    // 并且反转。
+    for (auto& [name, ls] : lifespan) {
+        auto& l = ls.ls;
+        l.reverse();
+        // 这么搞还不如直接弄个新list。
+        auto newL = std::list<std::pair<int, int>>();
+        for (auto it = l.begin(); it != l.end(); it++) {
+            auto [birth, death] = *it;
+            if (newL.empty()) {
+                newL.emplace_back(birth, death);
+                continue;
+            }
+            auto [birthLast, deathLast] = newL.back();
+            if (birth == deathLast) {
+                newL.pop_back();
+                newL.emplace_back(birthLast, death);
+            } else {
+                newL.emplace_back(birth, death);
+            }
+        }
+        ls.ls = newL;
+    }
+    // 打印结果。
+    for (auto& [name, ls] : lifespan) {
+        std::cout << name << ": ";
+        for (auto& [birth, death] : ls.ls) { std::cout << "(" << birth << "," << death << ") "; }
+        std::cout << std::endl;
+    }
 
     // 构建结束。开始分配。
-    // 优先级顺序，整数：a4-a7, a0-a3, t0-t6, s0-s11, fs0-fs11
-    // 浮点：fa4-fa7, fa0-fa3, ft0-ft6, fs0-fs11
+    // 数据还算比较密集，可以使用一个数组来记录每一位置的指令对应的寄存器分配和释放情况。
+    auto regInStream  = new shared_ptr<R5Taichi>[bb.size()];
+    auto regOutStream = new shared_ptr<R5Taichi>[bb.size()][4];
+
+    // 初始化
+    for (int j = 0; j < bb.size(); j++) {
+        int   k             = 0;
+        auto& outStreamHere = regOutStream[j];
+        for (auto& r : bb[j].getUsedRegs()) {
+            auto name = r->toString();
+            if (lifespan.find(name) != lifespan.end()) {
+                if (lifespan[name].isNowDying(j)) { outStreamHere[k++] = r; }
+            }
+        }
+        if (bb[j].getDefReg()) {
+            auto name = bb[j].getDefReg()->toString();
+            if (lifespan.find(name) != lifespan.end()) {
+                if (lifespan[name].isNowBearing(j)) { regInStream[j] = bb[j].getDefReg(); }
+            }
+        }
+    }
+
+    // 开始分配
+
+    std::set<YangReg> needSaveRegs;      // = allocated - argUsed. 读取完成后必须清空。
+    int               futureInst = -1;   // call的善后处理。用完置-1
+
+    // 分配器
+    auto dispatcher = R5RegDispatcher(taichiMap);
+    for (int i = 0; i < bb.size(); i++) {
+        auto& inst = bb[i];
+        if (inst.fakeOP == CALL) {
+            // call需要特殊处理。这里需要计算出是否需要保存寄存器。如果需要保存，那么就要保存。
+            auto              funcName         = inst.operands[0]->toString();
+            std::set<YangReg> argsUsedRegs     = _fu.at(funcName);
+            std::set<YangReg> nowAllocatedRegs = dispatcher.getUsedRegs();
+            // 补集
+            std::set_difference(
+                argsUsedRegs.begin(),
+                argsUsedRegs.end(),
+                nowAllocatedRegs.begin(),
+                nowAllocatedRegs.end(),
+                std::inserter(needSaveRegs, needSaveRegs.begin())
+            );
+
+            // woc call后边还有 一条类似addi sp,sp,16
+            // 他妈的。如果直接用sp寻址，sp还变化了。就有一些问题。
+            // 20230728 大改由s0寻址。保存直接用太极图就行、、、
+            for (auto r : needSaveRegs) {
+                if (!R5Yang::isCallerSave(r)) continue;
+                auto    rStr    = R5Yang::toString(r);
+                int64_t off     = taichiMap.allocate(rStr, 8);   // 固定8.
+                auto    isFloat = R5Yang::isFloatReg(r);
+                accessStack(dest, isFloat ? FSW : SD, r, off, s0);
+            }
+            dest.push_back(inst);
+            // 如果下一条指令是类似于mv %v1,a0或者fmv.s %v1,fa0此类。先将其放入dest中。
+            auto instNext = bb[i + 1];
+            if (instNext.fakeOP == MV || instNext.fakeOP == FMV_S) {
+                auto reg = instNext.operands[1];
+                if (auto r = dynamic_pointer_cast<R5Yang>(reg)) {
+                    if (r->reg == fa0 || r->reg == a0) { futureInst = i + 2; }
+                }
+            }
+
+            continue;
+        }
+        // call的spill的reload处理。
+        if (i == futureInst) {
+            futureInst = -1;
+            for (auto r : needSaveRegs) {
+                if (!R5Yang::isCallerSave(r)) continue;
+                auto    rStr    = R5Yang::toString(r);
+                int64_t off     = taichiMap.query(rStr);   // 固定8.
+                auto    isFloat = R5Yang::isFloatReg(r);
+                accessStack(dest, isFloat ? FLW : LD, r, off, s0);
+                taichiMap.release(rStr);
+            }
+            needSaveRegs.clear();
+        }
+        // 第一次替换。将即将流入历史长河的寄存器替换为实体寄存器。
+        for (auto j = 0; j < inst.opNum; j++) {
+            auto& r = inst.operands[j];   // <---------- 一会我们要替换的寄存器。
+            if (auto vr = dynamic_pointer_cast<R5Yin>(r)) {
+                auto name = vr->toString();
+                // 他很幸运。能够分配在寄存器中。
+                if (auto allocatedReg = dispatcher.queryReg(name); allocatedReg != InvalidReg) {
+                    r = make_shared<R5Yang>(allocatedReg);
+                }
+                // 不幸，被spill到内存中。太可惜了。
+                if (int64_t offset = dispatcher.queryStackOffset(name); offset != -1) {
+                    // 通过加载指令，将内存中的值加载到寄存器中。
+                    auto reservedR1 = vr->isFloat() ? dispatcher.getReservedFReg1()
+                                                    : dispatcher.getReservedIReg1();
+                    auto tmpReg     = dispatcher.getReservedIReg1();
+                    if (vr->isFloat()) {
+                        accessStack(dest, FLW, reservedR1, offset, tmpReg);
+                    } else if (vr->isInt()) {
+                        accessStack(dest, LW, reservedR1, offset, tmpReg);
+                    } else {
+                        accessStack(dest, LD, reservedR1, offset, tmpReg);
+                    }
+                    r = make_shared<R5Yang>(reservedR1);
+                }
+            }
+        }
+        auto in  = regInStream[i];
+        auto out = regOutStream[i];
+        // in是开始使用这个寄存器，out是他妈的释放。
+        // out 要他妈的注意总共就4个，不要超过4个。
+        // 注意，先释放，再分配。
+        for (auto jj = 0; jj < 4; jj++) {
+            auto outJ = out[jj];   // 需要释放的寄存器
+            if (outJ == nullptr) continue;
+            //            LOGD("Release " << outJ->toString() << " in " << i << "th inst");
+            if (auto outYang = dynamic_pointer_cast<R5Yang>(outJ)) {
+                dispatcher.releaseR(outYang->reg);
+            } else if (auto outYin = dynamic_pointer_cast<R5Yin>(outJ)) {
+                dispatcher.releaseV(outYin->toString());
+            }
+        }
+        // 分配
+        if (in != nullptr) {
+            //            LOGD("Allocate " << in->toString() << " in " << i << "th inst");
+            if (auto inYang = dynamic_pointer_cast<R5Yang>(in)) {
+                // 这里分配了物理寄存器。
+                dispatcher.allocateR(inYang->reg);
+                // 物理寄存器不可能出现spill, 要不就是你脑子抽了。
+                // 也不需要对应关系说是。
+            } else if (auto inYin = dynamic_pointer_cast<R5Yin>(in)) {
+                if (inYin->isFloat()) {
+                    // 分配一个物理寄存器（浮点）
+                    auto reg = dispatcher.allocateFV(inYin->toString());
+                    // 只说一遍，栈上的不需要记录。
+                    if (reg == InvalidReg) {
+                        auto offset = dispatcher.queryStackOffset(inYin->toString());
+                        IR_ASSERT(offset != -1, "offset should not be -1");
+                    }
+                    // 再说一遍，已经分配的也不需要记录。
+                } else {
+                    auto reg = dispatcher.allocateIV(inYin->toString());
+                    if (reg == InvalidReg) {
+                        auto offset = dispatcher.queryStackOffset(inYin->toString());
+                        IR_ASSERT(offset != -1, "offset should not be -1");
+                    }
+                }
+            }
+        }
+        // 第二次替换
+        for (auto j = 0; j < inst.opNum; j++) {
+            auto& r = inst.operands[j];   // <---------- 一会我们要替换的寄存器。
+            if (auto vr = dynamic_pointer_cast<R5Yin>(r)) {
+                auto name = vr->toString();
+                // 他很幸运。能够分配在寄存器中。
+                if (auto allocatedReg = dispatcher.queryReg(name); allocatedReg != InvalidReg) {
+                    r = make_shared<R5Yang>(allocatedReg);
+                }
+                // 我们需要知道他出现在use还是def中。def需要store，use需要load。
+                // 不幸，被spill到内存中。太可惜了。
+                if (int64_t offset = dispatcher.queryStackOffset(name); offset != -1) {
+                    // 通过加载指令，将内存中的值加载到寄存器中。
+                    auto reservedR2 = vr->isFloat() ? dispatcher.getReservedFReg2()
+                                                    : dispatcher.getReservedIReg2();
+                    auto tmpReg     = dispatcher.getReservedIReg2();
+                    if (vr->isFloat()) {
+                        accessStack(dest, FLW, reservedR2, offset, tmpReg);
+                    } else if (vr->isInt()) {
+                        accessStack(dest, LW, reservedR2, offset, tmpReg);
+                    } else {
+                        accessStack(dest, LD, reservedR2, offset, tmpReg);
+                    }
+                    r = make_shared<R5Yang>(reservedR2);
+                }
+            }
+        }
+        // 将结果写入dest数组。
+        dest.push_back(inst);
+    }
+    // print the result
+    // for (int i = 0; i < dest.size(); i++) {
+    //     std::cout << i << "\t" << dest[i].toString() << std::endl;
+    // }
+    totalUsedRegs = dispatcher.getTotalUsedRegs();
+    delete[] regInStream;
+    delete[] regOutStream;
 }
 std::set<YangReg> R5RegAllocator::getUsedRegs(string funcName)
 {
-    // if starts with "@" , then remove "@"
-    if (funcName[0] == '@') { funcName = funcName.substr(1); }
-    if (funcName == "memset") return {a0, a1, a2};
-    return _fu[funcName];
+    // if not starts with "@" , then add "@"
+    if (funcName[0] != '@') { funcName = "@" + funcName; }
+    if (funcName == "@memset") return {a0, a1, a2};
+    return _fu.at(funcName);
+}
+const std::vector<std::vector<R5AsmStrangeFake>>& R5RegAllocator::getAllocatedCodes()
+{
+    return allocatedCodes;
+}
+const std::set<YangReg>& R5RegAllocator::getTotalUsedRegs() const
+{
+    return totalUsedRegs;
 }
 
 }   // namespace R5Emitter

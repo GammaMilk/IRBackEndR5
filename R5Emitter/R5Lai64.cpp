@@ -18,4 +18,9 @@ bool R5Lai64::operator!=(const R5Taichi& rhs) const
 {
     return R5Taichi::operator!=(rhs) || value != dynamic_cast<const R5Lai64&>(rhs).value;
 }
+string R5Lai64::toString(bool b) const
+{
+    return toString();
+}
+
 }   // namespace R5Emitter

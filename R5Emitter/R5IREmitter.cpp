@@ -14,6 +14,12 @@ namespace R5Emitter
 #define tab "    "
 void R5IREmitter::build(std::ostream& os)
 {
+    // program header
+    os << R"(    .option pic
+    .attribute arch, "rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0"
+    .attribute stack_align, 16
+    .text)"
+       << endl;
     // global variables
     for (auto& globalVar : _middleIRAST->globalVars) {
         // cut first "@"
@@ -106,11 +112,9 @@ void R5IREmitter::build(std::ostream& os)
     }
 
     // functions
-    os << tab << ".text" << endl;
     for (auto& function : _middleIRAST->funcDefs) {
-        os << function->getName().substr(1) << ":" << endl;
         R5FakeSeihai fakeSeihai(function, _middleIRAST);
-        fakeSeihai.emitFakeSeihai();
+        fakeSeihai.emitStream(os);
     }
 }
 #undef tab

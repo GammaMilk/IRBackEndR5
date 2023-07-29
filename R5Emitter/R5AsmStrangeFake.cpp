@@ -129,31 +129,13 @@ string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
     case DIV: return "div";
     case REM: return "rem";
     case ADDI: return "addi";
+    case FMV_S: return "fmv.s";
     }
     return "{Unknown FakeOP} " + std::to_string(op);
 }
 string R5AsmStrangeFake::toString()
 {
-    stringstream ss;
-    ss << FakeOPToString(fakeOP) << "\t";
-    if (fakeOP == SW || fakeOP == LW || fakeOP == SD || fakeOP == LD || fakeOP == FLW ||
-        fakeOP == FSW) {
-        ss << operands[0]->toString() << ", ";
-        ss << operands[1]->toString() << "(";
-        ss << operands[2]->toString() << ")";
-        return ss.str();
-    }
-    if (defUse[0] != UNUSED) { ss << operands[0]->toString(); }
-    for (int i = 1; i < R5_MAX_ARG_NUM; i++) {
-        if (defUse[i] == UNUSED)
-            break;
-        else {
-            ss << ", " << operands[i]->toString();
-        }
-    }
-    // fcvt.w.s a5,fa5,rtz
-    if (fakeOP == FCVT_W_S) { ss << ", rtz"; }
-    return ss.str();
+    return toString(false);
 }
 std::forward_list<shared_ptr<R5Taichi>> R5AsmStrangeFake::getUsedRegs()
 {
@@ -169,6 +151,30 @@ shared_ptr<R5Taichi> R5AsmStrangeFake::getDefReg()
         if (defUse[i] == DEF) { return operands[i]; }
     }
     return nullptr;
+}
+string R5AsmStrangeFake::toString(bool onEmitting)
+{
+
+    stringstream ss;
+    ss << FakeOPToString(fakeOP) << "\t";
+    if (fakeOP == SW || fakeOP == LW || fakeOP == SD || fakeOP == LD || fakeOP == FLW ||
+        fakeOP == FSW) {
+        ss << operands[0]->toString(onEmitting) << ", ";
+        ss << operands[1]->toString(onEmitting) << "(";
+        ss << operands[2]->toString(onEmitting) << ")";
+        return ss.str();
+    }
+    if (defUse[0] != UNUSED) { ss << operands[0]->toString(onEmitting); }
+    for (int i = 1; i < R5_MAX_ARG_NUM; i++) {
+        if (defUse[i] == UNUSED)
+            break;
+        else {
+            ss << ", " << operands[i]->toString(onEmitting);
+        }
+    }
+    // fcvt.w.s a5,fa5,rtz
+    if (fakeOP == FCVT_W_S) { ss << ", rtz"; }
+    return ss.str();
 }
 
 

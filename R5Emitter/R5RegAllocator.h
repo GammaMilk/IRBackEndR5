@@ -19,16 +19,19 @@ class R5RegAllocator
 public:
     // 从基本块名字、基本块代码、太极图引用构造一个寄存器分配器
     R5RegAllocator(
-        const std::list<string>&                        bbNames_,
-        const std::list<std::vector<R5AsmStrangeFake>>& bbCodes_,
+        const std::vector<string>&                        bbNames_,
+        const std::vector<std::vector<R5AsmStrangeFake>>& bbCodes_,
         R5TaichiMap&                                    taichiMap_,
-        fu                                              fu_
+        const fu&                                         fu_
     );
 
     // 为所有基本块分配寄存器
     void doAllocate();
     // 指定一个基本块，为其分配寄存器
-    void doAllocate(int i);
+    void doAllocate(int bbIndex);
+    // 获取分配结果
+    const std::vector<std::vector<R5AsmStrangeFake>>& getAllocatedCodes();
+    // 获取使用过的寄存器
 
 protected:
     // 太极图引用。用于记录、分配栈空间。
@@ -44,10 +47,14 @@ protected:
     std::vector<std::vector<R5AsmStrangeFake>> allocatedCodes;
 
     // 所有使用过的寄存器
-    std::set<R5Yang> totalUsedRegs;
+    std::set<YangReg> totalUsedRegs;
 
+public:
+    [[nodiscard]] const std::set<YangReg>& getTotalUsedRegs() const;
+
+protected:
     // 用于获取call指令用到哪些寄存器
-    fu _fu;
+    const fu& _fu;
 
     // 获取那个函数的寄存器使用情况
     std::set<YangReg> getUsedRegs(string funcName);

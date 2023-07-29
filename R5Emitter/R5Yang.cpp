@@ -88,6 +88,11 @@ string R5Yang::toString(YangReg reg)
     case fs11: return "fs11";
     case YangRegCount: return "YangRegCount";
     }
+    return "Unknown";
+}
+string R5Yang::toString(bool onEmitting) const
+{
+    return toString();
 }
 YangReg YangRegs[YangRegCount] = {
     zero,                 // 零寄存器属金，金性刚硬，坚不可摧

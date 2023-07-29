@@ -93,7 +93,7 @@ int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
     memory.push_back(newBlock);
     memory.back()->allocated  = true;
     allocations[variableName] = memory.back();
-    return lastAddr;
+    return invert(lastAddr);
 }
 
 void R5TaichiMap::release(const std::string& variableName)
@@ -130,7 +130,7 @@ void R5TaichiMap::release(const std::string& variableName)
 int64_t R5TaichiMap::query(const std::string& variableName)
 {
     auto it = allocations.find(variableName);
-    return (it != allocations.end()) ? it->second->address : -1;
+    return (it != allocations.end()) ? invert(it->second->address) : -1;
 }
 
 int64_t R5TaichiMap::getSize() const
@@ -141,6 +141,32 @@ int64_t R5TaichiMap::getSize() const
 R5TaichiMap::~R5TaichiMap()
 {
     for (auto& it : memory) { delete it; }
+}
+R5TaichiMap::R5TaichiMap()
+    : inverted(false)
+    , preserveSize(0)
+{
+}
+R5TaichiMap::R5TaichiMap(bool inverted)
+    : inverted(inverted)
+    , preserveSize(16)
+{
+}
+R5TaichiMap::R5TaichiMap(int64_t preserveSize_)
+    : preserveSize(preserveSize_)
+    , inverted(true)
+{
+}
+int64_t R5TaichiMap::invert(int64_t offset) const
+{
+    if (inverted) {
+        int64_t r8 = offset % 8;
+        int64_t d8 = offset - r8;
+        d8         = -d8 - 8;
+        return -preserveSize + d8 + r8;
+    } else {
+        return offset;
+    }
 }
 
 

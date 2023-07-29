@@ -23,8 +23,8 @@ funcCallUsedReg(string funcName, const std::shared_ptr<MiddleIRAST>& irast)
             floatRegUsed++;
         }
     }
-    intRegUsed   = std::max(intRegUsed, 8);
-    floatRegUsed = std::max(floatRegUsed, 8);
+    intRegUsed   = std::min(intRegUsed, 8);
+    floatRegUsed = std::min(floatRegUsed, 8);
     for (int i = 0; i < intRegUsed; i++) { usedReg.insert((YangReg)(i + a0)); }
     for (int i = 0; i < floatRegUsed; i++) { usedReg.insert((YangReg)(i + fa0)); }
     return usedReg;

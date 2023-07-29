@@ -29,6 +29,7 @@ public:
     }
     virtual ~R5Taichi()                           = default;
     [[nodiscard]] virtual string toString() const = 0;
+    [[nodiscard]] virtual string toString(bool onEmitting) const = 0;
 };
 
 }   // namespace R5Emitter

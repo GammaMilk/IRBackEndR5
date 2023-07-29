@@ -25,6 +25,8 @@ enum FakeOPs {
     // RV64F, Calculate
     FADD_S, FSUB_S, FMUL_S, FDIV_S, FSGNJ_S, FSGNJN_S, FSGNJX_S, FMIN_S, FMAX_S, FSQRT_S,
     FLT, FEQ, FLE,
+    // RV64F(32F) move
+    FMV_S,
     // RV64F, R4
     FMADD_S, FMSUB_S, FNMADD_S, FNMSUB_S,
     // Psuedo
@@ -54,6 +56,7 @@ struct R5AsmStrangeFake {
 
     static string                           FakeOPToString(FakeOPs op);
     string                                  toString();
+    string                                  toString(bool onEmitting);
     std::forward_list<shared_ptr<R5Taichi>> getUsedRegs();
     shared_ptr<R5Taichi>                    getDefReg();
     ~R5AsmStrangeFake() = default;

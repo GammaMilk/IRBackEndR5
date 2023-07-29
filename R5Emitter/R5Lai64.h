@@ -22,6 +22,7 @@ public:
     {
     }
     [[nodiscard]] string toString() const override;
+    [[nodiscard]] string toString(bool b) const override;
     int64_t              value;
 };
 

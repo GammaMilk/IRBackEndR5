@@ -22,13 +22,17 @@ public:
         const std::shared_ptr<MiddleIRFuncDef>& funcDef, const std::shared_ptr<MiddleIRAST>& irast
     );
     void emitFakeSeihai();
+    void emitStream(std::ostream& os);
 
-    std::list<string>                   bbNames;
-    std::list<vector<R5AsmStrangeFake>> blockStrangeFake;
+    std::vector<string>                        bbNames;   // 基本块名字(optimized)
+    std::vector<vector<R5AsmStrangeFake>>      blockStrangeFake;
+    std::vector<std::vector<R5AsmStrangeFake>> allocatedCodes;
 
 private:
     int extTempVarNum    = 0;   // 额外的虚拟寄存器
     int extTempMemVarNum = 0;   // 额外的内存常量区
+
+    bool isEmitFinished = false;
 
     // 新建虚拟寄存器
     inline string E();
@@ -41,12 +45,11 @@ private:
     std::unordered_map<string, uint32_t> constMem;
 
     // 太极图 表示alloca和spill中相对于sp的正偏移。
-    // std::unordered_map<string, int64_t> taichiMap;
     R5TaichiMap taichiMap;
     // 一般的太极图我们不能满足了！我们需要新的太极图！
     // 分配一个栈空间。单位字节。按4字节对齐。
     void allocateStackSpace(const string& name, int64_t size);
-    // 查询太极图中的偏移量。是sp的正偏移。
+    // 查询太极图中的偏移量。是s0的负偏移。
     int64_t queryStackSpace(const string& name);
     // 太极图中真的有吗？如有！
     bool queryInStackSpace(const string& name);
@@ -96,6 +99,7 @@ private:
         int64_t                     offset,
         YangReg                     st
     );
+    std::set<YangReg> totalUsedReg;   // Only saved Callee-Saved Regs
 };
 
 }   // namespace R5Emitter
