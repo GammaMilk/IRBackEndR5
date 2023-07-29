@@ -172,7 +172,7 @@ YangReg R5RegDispatcher::queryReg(const string& vName)
     else
         return InvalidReg;
 }
-std::set<YangReg> R5RegDispatcher::getUsedRegs()
+std::set<YangReg> R5RegDispatcher::getNowUsedRegs()
 {
     return nowUsedRegs;
 }

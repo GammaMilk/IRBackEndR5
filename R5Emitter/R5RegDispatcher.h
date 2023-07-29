@@ -35,7 +35,7 @@ public:
     /// \param vName 虚拟寄存器名字
     /// \return 如果已经分配，返回寄存器；否则返回InvalidReg
     YangReg           queryReg(const string& vName);
-    std::set<YangReg> getUsedRegs();
+    std::set<YangReg> getNowUsedRegs();
     static YangReg    getReservedIReg1();
     static YangReg    getReservedIReg2();
     static YangReg    getReservedFReg1();

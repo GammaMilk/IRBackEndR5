@@ -34,6 +34,7 @@ private:
     int64_t preserveSize;   // 保留的内存大小(保存s0&ra)
 
     int64_t invert(int64_t offset) const;
+    int64_t allocateImpl(const std::string& variableName, int64_t size);
 
 public:
     explicit R5TaichiMap();

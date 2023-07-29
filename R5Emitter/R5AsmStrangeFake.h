@@ -24,7 +24,7 @@ enum FakeOPs {
     FLW, FSW, FCVT_S_W, FCVT_W_S, FMV_X_S, FMV_S_X,
     // RV64F, Calculate
     FADD_S, FSUB_S, FMUL_S, FDIV_S, FSGNJ_S, FSGNJN_S, FSGNJX_S, FMIN_S, FMAX_S, FSQRT_S,
-    FLT, FEQ, FLE,
+    FLT_S, FEQ_S, FLE_S,
     // RV64F(32F) move
     FMV_S,
     // RV64F, R4

@@ -34,21 +34,27 @@ static inline shared_ptr<R5Taichi> P(uint64_t v)
 {
     return make_shared<R5Lai64>(v);
 }
-static inline void accessStack(
-    std::vector<R5AsmStrangeFake>& dest, FakeOPs op, YangReg val1, int64_t val2, YangReg tmpReg
+static inline void accessStackWithTmp(
+    std::vector<R5AsmStrangeFake>& codeDest,
+    FakeOPs                        op,
+    YangReg                        dst,
+    int64_t                        offset,
+    YangReg                        baseReg,
+    YangReg                        tmpReg
 )
 {
-    if (couldLoadWithRegImm(val2)) {
-        dest.emplace_back(R5AsmStrangeFake(op, {R(val1), P(val2), R(sp)}));
+    if (couldLoadWithRegImm(offset)) {
+        codeDest.emplace_back(R5AsmStrangeFake(op, {R(dst), P(offset), R(baseReg)}));
     } else {
-        dest.emplace_back(R5AsmStrangeFake(LI, {R(tmpReg), P(val2)}));
-        dest.emplace_back(R5AsmStrangeFake(op, {R(val1), R(tmpReg), R(sp)}));
+        codeDest.emplace_back(R5AsmStrangeFake(LI, {R(tmpReg), P(offset)}));
+        codeDest.emplace_back(R5AsmStrangeFake(ADD, {R(tmpReg), P(baseReg)}));
+        codeDest.emplace_back(R5AsmStrangeFake(op, {R(dst), P(0), R(tmpReg)}));
     }
 }
 R5RegAllocator::R5RegAllocator(
     const std::vector<string>&                        bbNames_,
     const std::vector<std::vector<R5AsmStrangeFake>>& bbCodes_,
-    R5TaichiMap&                                    taichiMap_,
+    R5TaichiMap&                                      taichiMap_,
     const fu&                                         fu_
 )
     : taichiMap(taichiMap_)
@@ -312,6 +318,9 @@ void R5RegAllocator::doAllocate(int bbIndex)
     // 开始分配
 
     std::set<YangReg> needSaveRegs;      // = allocated - argUsed. 读取完成后必须清空。
+    int               needSaveRegHashAllocate = 0;
+    int               needSaveRegHashRelease  = 0;
+
     int               futureInst = -1;   // call的善后处理。用完置-1
 
     // 分配器
@@ -322,13 +331,14 @@ void R5RegAllocator::doAllocate(int bbIndex)
             // call需要特殊处理。这里需要计算出是否需要保存寄存器。如果需要保存，那么就要保存。
             auto              funcName         = inst.operands[0]->toString();
             std::set<YangReg> argsUsedRegs     = _fu.at(funcName);
-            std::set<YangReg> nowAllocatedRegs = dispatcher.getUsedRegs();
+            std::set<YangReg> nowAllocatedRegs = dispatcher.getNowUsedRegs();
+            needSaveRegs.clear();
             // 补集
             std::set_difference(
-                argsUsedRegs.begin(),
-                argsUsedRegs.end(),
                 nowAllocatedRegs.begin(),
                 nowAllocatedRegs.end(),
+                argsUsedRegs.begin(),
+                argsUsedRegs.end(),
                 std::inserter(needSaveRegs, needSaveRegs.begin())
             );
 
@@ -337,14 +347,17 @@ void R5RegAllocator::doAllocate(int bbIndex)
             // 20230728 大改由s0寻址。保存直接用太极图就行、、、
             for (auto r : needSaveRegs) {
                 if (!R5Yang::isCallerSave(r)) continue;
-                auto    rStr    = R5Yang::toString(r);
+                auto rStr   = R5Yang::toString(r) + "!" + std::to_string(needSaveRegHashAllocate++);
                 int64_t off     = taichiMap.allocate(rStr, 8);   // 固定8.
                 auto    isFloat = R5Yang::isFloatReg(r);
-                accessStack(dest, isFloat ? FSW : SD, r, off, s0);
+                accessStackWithTmp(
+                    dest, isFloat ? FSW : SD, r, off, s0, dispatcher.getReservedIReg1()
+                );
             }
             dest.push_back(inst);
             // 如果下一条指令是类似于mv %v1,a0或者fmv.s %v1,fa0此类。先将其放入dest中。
             auto instNext = bb[i + 1];
+            futureInst    = i + 1;
             if (instNext.fakeOP == MV || instNext.fakeOP == FMV_S) {
                 auto reg = instNext.operands[1];
                 if (auto r = dynamic_pointer_cast<R5Yang>(reg)) {
@@ -359,10 +372,12 @@ void R5RegAllocator::doAllocate(int bbIndex)
             futureInst = -1;
             for (auto r : needSaveRegs) {
                 if (!R5Yang::isCallerSave(r)) continue;
-                auto    rStr    = R5Yang::toString(r);
+                auto    rStr = R5Yang::toString(r) + "!" + std::to_string(needSaveRegHashRelease++);
                 int64_t off     = taichiMap.query(rStr);   // 固定8.
                 auto    isFloat = R5Yang::isFloatReg(r);
-                accessStack(dest, isFloat ? FLW : LD, r, off, s0);
+                accessStackWithTmp(
+                    dest, isFloat ? FLW : LD, r, off, s0, dispatcher.getReservedIReg1()
+                );
                 taichiMap.release(rStr);
             }
             needSaveRegs.clear();
@@ -383,11 +398,11 @@ void R5RegAllocator::doAllocate(int bbIndex)
                                                     : dispatcher.getReservedIReg1();
                     auto tmpReg     = dispatcher.getReservedIReg1();
                     if (vr->isFloat()) {
-                        accessStack(dest, FLW, reservedR1, offset, tmpReg);
+                        accessStackWithTmp(dest, FLW, reservedR1, offset, s0, tmpReg);
                     } else if (vr->isInt()) {
-                        accessStack(dest, LW, reservedR1, offset, tmpReg);
+                        accessStackWithTmp(dest, LW, reservedR1, offset, s0, tmpReg);
                     } else {
-                        accessStack(dest, LD, reservedR1, offset, tmpReg);
+                        accessStackWithTmp(dest, LD, reservedR1, offset, s0, tmpReg);
                     }
                     r = make_shared<R5Yang>(reservedR1);
                 }
@@ -452,11 +467,11 @@ void R5RegAllocator::doAllocate(int bbIndex)
                                                     : dispatcher.getReservedIReg2();
                     auto tmpReg     = dispatcher.getReservedIReg2();
                     if (vr->isFloat()) {
-                        accessStack(dest, FLW, reservedR2, offset, tmpReg);
+                        accessStackWithTmp(dest, FLW, reservedR2, offset, s0, tmpReg);
                     } else if (vr->isInt()) {
-                        accessStack(dest, LW, reservedR2, offset, tmpReg);
+                        accessStackWithTmp(dest, LW, reservedR2, offset, s0, tmpReg);
                     } else {
-                        accessStack(dest, LD, reservedR2, offset, tmpReg);
+                        accessStackWithTmp(dest, LD, reservedR2, offset, s0, tmpReg);
                     }
                     r = make_shared<R5Yang>(reservedR2);
                 }

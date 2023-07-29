@@ -15,7 +15,7 @@ MemoryBlock::MemoryBlock(int64_t addr, int64_t sz)
 {
 }
 
-int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
+int64_t R5TaichiMap::allocateImpl(const std::string& variableName, int64_t size)
 {
     // 4字节对齐
     int64_t alignedSize = (size + 3) & (~3);
@@ -93,7 +93,12 @@ int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
     memory.push_back(newBlock);
     memory.back()->allocated  = true;
     allocations[variableName] = memory.back();
-    return invert(lastAddr);
+    return lastAddr;
+}
+
+int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
+{
+    return invert(allocateImpl(variableName, size));
 }
 
 void R5TaichiMap::release(const std::string& variableName)

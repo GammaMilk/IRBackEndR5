@@ -73,9 +73,9 @@ string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
     case FMIN_S: return "fmin.s";
     case FMAX_S: return "fmax.s";
     case FSQRT_S: return "fsqrt.s";
-    case FLT: return "flt";
-    case FEQ: return "feq";
-    case FLE: return "fle";
+    case FLT_S: return "flt.s";
+    case FEQ_S: return "feq.s";
+    case FLE_S: return "fle.s";
     case J: return "j";
     case CALL: return "call";
     case BGT: return "bgt";

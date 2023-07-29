@@ -202,6 +202,8 @@ void R5FakeSeihai::emitFakeSeihai()
     for (auto& def : ast->funcDefs) {
         funcUsedReg[def->getName()] = funcCallUsedReg(def->getName(), ast);
     }
+    // 差个@memset
+    funcUsedReg["@memset"] = {a0, a1, a2};
     LOGW("FuncName: " << thisFunc->getName());
     for (const auto& bb : thisFunc->getBasicBlocks()) {
         emitBB(bb);   // bbName and bb itself will be added Into blockStrangeFake in this func.
@@ -391,6 +393,8 @@ void R5FakeSeihai::handleRetInst(
         } else {
             sf.emplace_back(R5AsmStrangeFake(MV, {R(a0), V(iVal->getName(), Int)}));
         }
+    } else if (retType == MiddleIRType::VOID) {
+        // do nothing
     } else {
         RUNTIME_ERROR("他妈的不支持的返回值类型, 传了什么东西进来❤受不了了");
     }
@@ -653,16 +657,57 @@ void R5FakeSeihai::handleFCmpInst(
     vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1
 )
 {
-    auto                 fcmp = std::dynamic_pointer_cast<FCmpInst>(inst1);
-    auto                 fOp  = fcmp->getFCmpOp();
-    auto                 op1  = fcmp->getOpVal1();
-    auto                 op2  = fcmp->getOpVal2();
+    auto fcmp = std::dynamic_pointer_cast<FCmpInst>(inst1);
+    auto fOp  = fcmp->getFCmpOp();
+    auto op1  = fcmp->getOpVal1();
+    auto op2  = fcmp->getOpVal2();
+    // 两个操作数都是立即数 则直接比较。然后返回
+    if (op1->isConst() && op2->isConst()) {
+        auto op1Num = std::dynamic_pointer_cast<R5IRValConstFloat>(op1)->getValue();
+        auto op2Num = std::dynamic_pointer_cast<R5IRValConstFloat>(op2)->getValue();
+        bool result;
+        switch (fOp) {
+        case FCmpInst::FCmpOp::FALSE: result = false; break;
+        case FCmpInst::FCmpOp::TRUE: result = true; break;
+        case FCmpInst::FCmpOp::OEQ:
+        case FCmpInst::FCmpOp::UEQ: result = op1Num == op2Num; break;
+        case FCmpInst::FCmpOp::OGE:
+        case FCmpInst::FCmpOp::UGE: result = op1Num >= op2Num; break;
+        case FCmpInst::FCmpOp::OGT:
+        case FCmpInst::FCmpOp::UGT: result = op1Num > op2Num; break;
+        case FCmpInst::FCmpOp::OLE:
+        case FCmpInst::FCmpOp::ULE: result = op1Num <= op2Num; break;
+        case FCmpInst::FCmpOp::OLT:
+        case FCmpInst::FCmpOp::ULT: result = op1Num < op2Num; break;
+        case FCmpInst::FCmpOp::UNE:
+        case FCmpInst::FCmpOp::UNO: result = op1Num != op2Num; break;
+        }
+        if (result) {
+            sf.emplace_back(R5AsmStrangeFake(LI, {V(fcmp->getName(), Int), N(1)}));
+        } else {
+            sf.emplace_back(R5AsmStrangeFake(MV, {V(fcmp->getName(), Int), R(zero)}));
+        }
+        return;
+    }
     shared_ptr<R5Taichi> taichi1;
     shared_ptr<R5Taichi> taichi2;
     taichi1 = V(op1->getName(), Float);
     taichi2 = V(op2->getName(), Float);
+    // 加载数
+    if (op1->isConst()) {
+        auto op1Num = std::dynamic_pointer_cast<R5IRValConstFloat>(op1)->getWord();
+        auto tmp    = V(E(), Pointer);
+        sf.emplace_back(R5AsmStrangeFake(LLA, {tmp, L(C(op1Num))}));
+        sf.emplace_back(R5AsmStrangeFake(FLW, {taichi1, P(0), tmp}));
+    }
+    if (op2->isConst()) {
+        auto op2Num = std::dynamic_pointer_cast<R5IRValConstFloat>(op2)->getWord();
+        auto tmp    = V(E(), Pointer);
+        sf.emplace_back(R5AsmStrangeFake(LLA, {tmp, L(C(op2Num))}));
+        sf.emplace_back(R5AsmStrangeFake(FLW, {taichi2, P(0), tmp}));
+    }
 
-    // 特殊情况：两个操作数都是立即数（不可能）
+
     switch (fOp) {
 
     case FCmpInst::FCmpOp::FALSE: {
@@ -670,23 +715,23 @@ void R5FakeSeihai::handleFCmpInst(
     } break;
     case FCmpInst::FCmpOp::OEQ:
     case FCmpInst::FCmpOp::UEQ: {
-        sf.emplace_back(R5AsmStrangeFake(FEQ, {V(fcmp->getName(), Int), taichi1, taichi2}));
+        sf.emplace_back(R5AsmStrangeFake(FEQ_S, {V(fcmp->getName(), Int), taichi1, taichi2}));
     } break;
     case FCmpInst::FCmpOp::OGE:
     case FCmpInst::FCmpOp::UGE: {
-        sf.emplace_back(R5AsmStrangeFake(FLE, {V(fcmp->getName(), Int), taichi2, taichi1}));
+        sf.emplace_back(R5AsmStrangeFake(FLE_S, {V(fcmp->getName(), Int), taichi2, taichi1}));
     } break;
     case FCmpInst::FCmpOp::OGT:
     case FCmpInst::FCmpOp::UGT: {
-        sf.emplace_back(R5AsmStrangeFake(FLT, {V(fcmp->getName(), Int), taichi2, taichi1}));
+        sf.emplace_back(R5AsmStrangeFake(FLT_S, {V(fcmp->getName(), Int), taichi2, taichi1}));
     } break;
     case FCmpInst::FCmpOp::OLE:
     case FCmpInst::FCmpOp::ULE: {
-        sf.emplace_back(R5AsmStrangeFake(FLE, {V(fcmp->getName(), Int), taichi1, taichi2}));
+        sf.emplace_back(R5AsmStrangeFake(FLE_S, {V(fcmp->getName(), Int), taichi1, taichi2}));
     } break;
     case FCmpInst::FCmpOp::OLT:
     case FCmpInst::FCmpOp::ULT: {
-        sf.emplace_back(R5AsmStrangeFake(FLT, {V(fcmp->getName(), Int), taichi1, taichi2}));
+        sf.emplace_back(R5AsmStrangeFake(FLT_S, {V(fcmp->getName(), Int), taichi1, taichi2}));
     } break;
     case FCmpInst::FCmpOp::TRUE: {
         sf.emplace_back(R5AsmStrangeFake(LI, {V(fcmp->getName(), Int), N(1)}));
@@ -694,7 +739,7 @@ void R5FakeSeihai::handleFCmpInst(
     case FCmpInst::FCmpOp::UNO:
     case FCmpInst::FCmpOp::UNE: {
         auto tmp = V(E(), Int);
-        sf.emplace_back(R5AsmStrangeFake(FEQ, {tmp, taichi1, taichi2}));
+        sf.emplace_back(R5AsmStrangeFake(FEQ_S, {tmp, taichi1, taichi2}));
         sf.emplace_back(R5AsmStrangeFake(NOT, {V(fcmp->getName(), Int), tmp}));
     } break;
     }
@@ -834,15 +879,13 @@ void R5FakeSeihai::handleICmpNoBr(
         else if (cmpOp == ICmpInst::EQ) {
             auto tmp = V(E(), Int);
             sf.emplace_back(R5AsmStrangeFake(SUBW, {tmp, taichi1, taichi2}));
-            sf.emplace_back(R5AsmStrangeFake(SNEZ, {V(cmpInst->getName(), Int), tmp}));
+            sf.emplace_back(R5AsmStrangeFake(SEQZ, {V(cmpInst->getName(), Int), tmp}));
         }
         // 不等于
         else if (cmpOp == ICmpInst::NE) {
-            auto tmp  = V(E(), Int);
-            auto tmp2 = V(E(), Int);
+            auto tmp = V(E(), Int);
             sf.emplace_back(R5AsmStrangeFake(SUBW, {tmp, taichi1, taichi2}));
-            sf.emplace_back(R5AsmStrangeFake(SNEZ, {tmp2, tmp}));
-            sf.emplace_back(R5AsmStrangeFake(NOT, {V(cmpInst->getName(), Int), tmp2}));
+            sf.emplace_back(R5AsmStrangeFake(SNEZ, {V(cmpInst->getName(), Int), tmp}));
         } else {
             RUNTIME_ERROR("他妈的不支持的ICMP类型, 传了什么东西进来❤受不了了");
         }
@@ -887,6 +930,12 @@ void R5FakeSeihai::handleICmpNoBr(
         }
         // 等于号，先减法，再SNEZ
         else if (cmpOp == ICmpInst::EQ) {
+            auto tmp = V(E(), Int);
+            sf.emplace_back(R5AsmStrangeFake(SUBW, {tmp, taichi1, taichi2}));
+            sf.emplace_back(R5AsmStrangeFake(SEQZ, {V(cmpInst->getName(), Int), tmp}));
+        }
+        // 不等于
+        else if (cmpOp == MiddleIR::ICmpInst::NE) {
             auto tmp = V(E(), Int);
             sf.emplace_back(R5AsmStrangeFake(SUBW, {tmp, taichi1, taichi2}));
             sf.emplace_back(R5AsmStrangeFake(SNEZ, {V(cmpInst->getName(), Int), tmp}));
