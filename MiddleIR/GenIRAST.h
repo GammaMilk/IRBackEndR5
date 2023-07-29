@@ -5,7 +5,7 @@
 #ifndef IRBACKENDR5_GENIRAST_H
 #define IRBACKENDR5_GENIRAST_H
 #include <antlr4-common.h>
-#include "../LLVMIRVisitor.h"
+#include "LLVMIRVisitor.h"
 #include "MiddleIRAST.h"
 namespace MiddleIR
 {

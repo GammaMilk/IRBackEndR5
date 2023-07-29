@@ -5,7 +5,7 @@
 #ifndef IRBACKENDR5_R5ASMSTRANGEFAKE_H
 #define IRBACKENDR5_R5ASMSTRANGEFAKE_H
 #include <forward_list>
-#include "../R5Def.h"
+#include "R5Def.h"
 #include "R5Taichi.h"
 #include "R5Yang.h"
 #include "R5Yin.h"
@@ -16,6 +16,7 @@ enum FakeOPs {
     FAKEOPS_BEGIN, NOP,
     // RV64I
     LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU, LW, SW, ADDIW, ADDW, SUBW, SLT, SLTU, LD, SD,
+    NEG,
     // 64bit pointer
     ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLLI, SRLI, SRAI, ANDI, ORI, XORI, ADDI,
     // RV64M

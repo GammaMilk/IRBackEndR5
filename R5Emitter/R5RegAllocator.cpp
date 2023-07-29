@@ -5,7 +5,7 @@
 #include "R5RegAllocator.h"
 #include "R5RegDispatcher.h"
 #include "R5Lai64.h"
-#include "../R5Logger.h"
+#include "R5Logger.h"
 
 #include <utility>
 #include <iostream>

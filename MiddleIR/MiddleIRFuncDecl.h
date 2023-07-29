@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "MiddleIRType.h"
-#include "../R5Def.h"
+#include "R5Def.h"
 #include "MiddleIRVal.h"
 namespace MiddleIR
 {

@@ -6,8 +6,8 @@
 #define IRBACKENDR5_R5IREMITTER_H
 #include <utility>
 
-#include "../R5Def.h"
-#include "../MiddleIR/MiddleIRAST.h"
+#include "R5Def.h"
+#include "MiddleIRAST.h"
 #include "R5Yang.h"
 namespace R5Emitter
 {

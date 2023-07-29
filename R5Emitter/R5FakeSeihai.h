@@ -6,11 +6,11 @@
 #define IRBACKENDR5_R5FAKESEIHAI_H
 
 #include <list>
-#include "../MiddleIR/MiddleIRInst.h"
+#include "MiddleIRInst.h"
 #include "R5AsmStrangeFake.h"
-#include "../MiddleIR/MiddleIRFuncDef.h"
+#include "MiddleIRFuncDef.h"
 #include "R5TaichiMap.h"
-#include "../MiddleIR/MiddleIRAST.h"
+#include "MiddleIRAST.h"
 using namespace MiddleIR;
 
 namespace R5Emitter

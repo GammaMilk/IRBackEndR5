@@ -5,9 +5,9 @@
 #ifndef IRBACKENDR5_MIDDLEIRBASICBLOCK_H
 #define IRBACKENDR5_MIDDLEIRBASICBLOCK_H
 
-#include "../R5Def.h"
+#include "R5Def.h"
 #include "MiddleIRInst.h"
-#include "../R5Logger.h"
+#include "R5Logger.h"
 #include <list>
 
 namespace MiddleIR

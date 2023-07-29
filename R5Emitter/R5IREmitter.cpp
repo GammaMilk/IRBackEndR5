@@ -4,8 +4,8 @@
 #include <utility>
 
 #include "R5IREmitter.h"
-#include "../MiddleIR/MiddleIRVal.h"
-#include "../MiddleIR/ArrayHelper.h"
+#include "MiddleIRVal.h"
+#include "ArrayHelper.h"
 #include "R5FakeSeihai.h"
 #include "R5Utils.h"
 namespace R5Emitter

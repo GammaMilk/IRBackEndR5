@@ -130,6 +130,7 @@ string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
     case REM: return "rem";
     case ADDI: return "addi";
     case FMV_S: return "fmv.s";
+    case NEG: return "neg";
     }
     return "{Unknown FakeOP} " + std::to_string(op);
 }

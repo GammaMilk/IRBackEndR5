@@ -6,8 +6,8 @@
 #define IRBACKENDR5_R5UTILS_H
 
 #include "R5FakeSeihai.h"
-#include "../MiddleIR/ArrayHelper.h"
-#include "../MiddleIR/MiddleIRVal.h"
+#include "ArrayHelper.h"
+#include "MiddleIRVal.h"
 #include "R5IREmitter.h"
 #include <utility>
 namespace R5Emitter

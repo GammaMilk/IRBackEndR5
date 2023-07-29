@@ -5,7 +5,7 @@
 #ifndef IRBACKENDR5_MIDDLEIRFUNCDEF_H
 #define IRBACKENDR5_MIDDLEIRFUNCDEF_H
 
-#include "../R5Def.h"
+#include "R5Def.h"
 #include "MiddleIRVal.h"
 #include "MiddleIRBasicBlock.h"
 #include "MiddleIRFuncDecl.h"

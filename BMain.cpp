@@ -21,9 +21,9 @@
 #include "tree/ParseTree.h"
 
 #include "R5Logger.h"
-#include "MiddleOpt/IROptimizer.h"
-#include "R5Emitter/R5IREmitter.h"
-#include "MiddleIR/GenIRAST.h"
+#include "IROptimizer.h"
+#include "R5IREmitter.h"
+#include "GenIRAST.h"
 
 using namespace antlrcpp;
 using namespace antlr4;

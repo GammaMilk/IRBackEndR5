@@ -207,7 +207,7 @@ void R5FakeSeihai::emitFakeSeihai()
     LOGW("FuncName: " << thisFunc->getName());
     for (const auto& bb : thisFunc->getBasicBlocks()) {
         emitBB(bb);   // bbName and bb itself will be added Into blockStrangeFake in this func.
-        LOGW(bbNames.back());
+                      //        LOGW(bbNames.back());
     }
 
     // 函数级别的寄存器分配
@@ -1202,13 +1202,19 @@ void R5FakeSeihai::handleIMathInst(
 
     case IMathInst::IMathOp::SUB: {
         if (isI) {
-            if (taichi1->isLai()) S(taichi1, taichi2);
+            bool needNeg = false;
+            if (taichi1->isLai()) {
+                needNeg = true;
+                S(taichi1, taichi2);
+            }
             dynamic_pointer_cast<R5Lai>(taichi2)->negative();
             op = ADDIW;
+            sf.emplace_back(R5AsmStrangeFake(op, {rd, taichi1, taichi2}));
+            if (needNeg) sf.emplace_back(R5AsmStrangeFake(NEGW, {rd, rd}));
         } else {
             op = SUBW;
+            sf.emplace_back(R5AsmStrangeFake(op, {rd, taichi1, taichi2}));
         }
-        sf.emplace_back(R5AsmStrangeFake(op, {rd, taichi1, taichi2}));
     } break;
 
     case IMathInst::IMathOp::MUL: {

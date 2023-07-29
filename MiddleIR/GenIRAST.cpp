@@ -3,7 +3,7 @@
 //
 
 #include "GenIRAST.h"
-#include "../R5Logger.h"
+#include "R5Logger.h"
 #include "MiddleIRBrInst.h"
 
 #define R5IRVISITOR_VISITING_DEBUG
