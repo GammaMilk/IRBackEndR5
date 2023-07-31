@@ -3,8 +3,7 @@
 //
 
 #include "R5TaichiMap.h"
-#include "R5Logger.h"
-
+#include <iostream>
 namespace R5Emitter
 {
 
@@ -102,7 +101,11 @@ int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
      if (x < 0) return x;
     allocatedSize[variableName] = size;
     maxSize = std::max(maxSize, getSize());
-    return invert(x, size);
+    auto v = invert(x, size);
+    if(v==-816) {
+        return -816;
+    }
+    return v;
 }
 
 void R5TaichiMap::release(const std::string& variableName)
@@ -134,6 +137,11 @@ void R5TaichiMap::release(const std::string& variableName)
                 }
             }
         }
+    }
+    // 删除最后的空闲块
+    while (!memory.empty() && !memory.back()->allocated) {
+        delete memory.back();
+        memory.pop_back();
     }
 }
 
