@@ -44,8 +44,8 @@ private:
     // 内存常量区表
     std::unordered_map<string, uint32_t> constMem;
 
-    // 太极图 表示alloca和spill中相对于sp的正偏移。
-    R5TaichiMap taichiMap;
+    // 太极图 表示alloca和spill中相对于s0的正偏移。
+    R5TaichiMap taichiMap; //这里只是 声明 。它会被初始化为R5TaichiMap(true)
     // 一般的太极图我们不能满足了！我们需要新的太极图！
     // 分配一个栈空间。单位字节。按4字节对齐。
     void allocateStackSpace(const string& name, int64_t size);
@@ -100,6 +100,14 @@ private:
         YangReg                     st
     );
     std::set<YangReg> totalUsedReg;   // Only saved Callee-Saved Regs
+    static void              accessStackWithTmp(
+                     vector<R5AsmStrangeFake>&   sf,
+                     FakeOPs                     op,
+                     const shared_ptr<R5Taichi>& op1,
+                     int64_t                     offset,
+                     YangReg                     st,
+                     YangReg                     tmp
+                 );
 };
 
 }   // namespace R5Emitter

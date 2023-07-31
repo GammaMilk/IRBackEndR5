@@ -70,7 +70,7 @@ int64_t R5TaichiMap::allocateImpl(const std::string& variableName, int64_t size)
                 allocations[variableName] = (*it);
                 if (nextBlock->size >= 0) {
                     // 如果后面的块大小大于0，那么插入后面的块
-                    memory.insert(it, nextBlock);
+                    memory.insert(std::next(it), nextBlock);
                 } else
                     delete nextBlock;
                 return newBlock->address;
@@ -99,8 +99,9 @@ int64_t R5TaichiMap::allocateImpl(const std::string& variableName, int64_t size)
 int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
 {
     auto x = allocateImpl(variableName, size);
-    if (x < 0) return x;
+     if (x < 0) return x;
     allocatedSize[variableName] = size;
+    maxSize = std::max(maxSize, getSize());
     return invert(x, size);
 }
 
@@ -117,7 +118,7 @@ void R5TaichiMap::release(const std::string& variableName)
     }
     // 重新整理内存块链表
     for (auto iterator = memory.begin(); iterator != memory.end(); ++iterator) {
-        if (!(*iterator)->allocated) {
+        if (!((*iterator)->allocated)) {
             // 如果当前块未分配，那么就看看后面的块是否未分配
             auto nextIt = iterator;
             for (++nextIt; nextIt != memory.end(); ++nextIt) {
@@ -164,7 +165,7 @@ R5TaichiMap::R5TaichiMap(bool inverted)
     , preserveSize(16)
 {
 }
-R5TaichiMap::R5TaichiMap(int64_t preserveSize_)
+[[maybe_unused]] R5TaichiMap::R5TaichiMap(int64_t preserveSize_)
     : preserveSize(preserveSize_)
     , inverted(true)
 {
@@ -176,6 +177,10 @@ int64_t R5TaichiMap::invert(int64_t offset, int64_t size) const
     } else {
         return offset;
     }
+}
+int64_t R5TaichiMap::getMaxSize() const
+{
+    return std::max(maxSize, getSize());
 }
 
 

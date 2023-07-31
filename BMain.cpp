@@ -50,7 +50,7 @@ void RISC_V_Backend(std::istream& in, std::ostream& out)
     // Optimizer
     auto        irAST       = visitor->getAST();
     auto        SPCopiedAST = make_shared<MiddleIRAST>(irAST);
-    uint64_t    opt         = IROptimizer::REDUNDANT_LOAD_ELIMINATION;
+    uint64_t    opt         = IROptimizer::NONE_OPTIMIZATION;
     IROptimizer optimizer(SPCopiedAST, static_cast<IROptimizer::ENABLED_OPT>(opt));
     optimizer.run();
 

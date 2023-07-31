@@ -9,13 +9,14 @@
 #include "R5TaichiMap.h"
 #include <set>
 #include <map>
+#include "Phoenix.h"
 namespace R5Emitter
 {
 
 class R5RegDispatcher
 {
 public:
-    explicit R5RegDispatcher(R5TaichiMap& taichiMap_);
+    explicit R5RegDispatcher(R5TaichiMap& taichiMap_, const LifespanMap& lsMap_);
     void    releaseIV(const string& vName);
     void    releaseFV(const string& vName);
     void    releaseV(const string& vName);
@@ -36,10 +37,8 @@ public:
     /// \return 如果已经分配，返回寄存器；否则返回InvalidReg
     YangReg           queryReg(const string& vName);
     std::set<YangReg> getNowUsedRegs();
-    static YangReg    getReservedIReg1();
-    static YangReg    getReservedIReg2();
-    static YangReg    getReservedFReg1();
-    static YangReg    getReservedFReg2();
+    static YangReg    getReservedIReg(int index);
+    static YangReg    getReservedFReg(int index);
 
 private:
     struct RPri {
@@ -56,9 +55,10 @@ private:
     static bool       isInt(YangReg r);
     static string     preTaichi(const string& vName);
     std::set<YangReg> totalUsedRegs;
+    const LifespanMap& lsMap;
 
 public:
-    const std::set<YangReg>& getTotalUsedRegs() const;
+    [[nodiscard]] const std::set<YangReg>& getTotalUsedRegs() const;
 
 private:
     std::set<YangReg>         nowUsedRegs;
@@ -68,6 +68,7 @@ private:
     std::map<string, YangReg> var2Reg;
     static void               insertReg(std::set<RPri>& regs, YangReg r);
     int64_t                   allocateStack(const string& vName, int64_t sz);
+    YangReg                   allocateV(const string& vName, bool isFloat);
 };
 
 }   // namespace R5Emitter
