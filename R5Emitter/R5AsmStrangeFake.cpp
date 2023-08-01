@@ -6,6 +6,35 @@
 
 namespace R5Emitter
 {
+
+R5AsmStrangeFake::R5AsmStrangeFake(
+    FakeOPs oPs, std::initializer_list<shared_ptr<R5Taichi>>&& operands_
+)
+    : fakeOP(oPs)
+{
+    opNum = (int8_t)operands_.size();
+    int i = 0;
+    // 一般来讲，第一个都是def, 后面的都是use
+    // 特殊情况特殊处理。
+    for (auto& operand : operands_) {
+        if (i == 0) {
+            defUse[i] = DEF;
+        } else {
+            defUse[i] = USE;
+        }
+        operands[i++] = operand;
+    }
+    if (fakeOP == CALL || fakeOP == J || fakeOP == RET) {
+        for (int j = 0; defUse[j] != UNUSED; ++j) { defUse[j] = USE; }
+    }
+    if (fakeOP == BEQZ || fakeOP == BNEZ || fakeOP == BLEZ || fakeOP == BGEZ || fakeOP == BGTZ ||
+        fakeOP == BLTZ) {
+        defUse[0] = USE;
+    }
+    if (fakeOP == SW || fakeOP == FSW || fakeOP == SD) { defUse[0] = USE; }
+    if (fakeOP == JAL && defUse[1] == UNUSED) { defUse[0] = USE; }
+}
+
 string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
 {
 
@@ -44,9 +73,9 @@ string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
     case FMIN_S: return "fmin.s";
     case FMAX_S: return "fmax.s";
     case FSQRT_S: return "fsqrt.s";
-    case FLT: return "flt";
-    case FEQ: return "feq";
-    case FLE: return "fle";
+    case FLT_S: return "flt.s";
+    case FEQ_S: return "feq.s";
+    case FLE_S: return "fle.s";
     case J: return "j";
     case CALL: return "call";
     case BGT: return "bgt";
@@ -100,28 +129,52 @@ string R5AsmStrangeFake::FakeOPToString(FakeOPs op)
     case DIV: return "div";
     case REM: return "rem";
     case ADDI: return "addi";
+    case FMV_S: return "fmv.s";
+    case NEG: return "neg";
     }
     return "{Unknown FakeOP} " + std::to_string(op);
 }
 string R5AsmStrangeFake::toString()
 {
+    return toString(false);
+}
+std::forward_list<shared_ptr<R5Taichi>> R5AsmStrangeFake::getUsedRegs()
+{
+    std::forward_list<shared_ptr<R5Taichi>> ret;
+    for (int i = 0; i < R5_MAX_ARG_NUM; i++) {
+        if (defUse[i] == USE) { ret.push_front(operands[i]); }
+    }
+    return ret;
+}
+shared_ptr<R5Taichi> R5AsmStrangeFake::getDefReg()
+{
+    for (int i = 0; i < R5_MAX_ARG_NUM; i++) {
+        if (defUse[i] == DEF) { return operands[i]; }
+    }
+    return nullptr;
+}
+string R5AsmStrangeFake::toString(bool onEmitting)
+{
+
     stringstream ss;
     ss << FakeOPToString(fakeOP) << "\t";
     if (fakeOP == SW || fakeOP == LW || fakeOP == SD || fakeOP == LD || fakeOP == FLW ||
         fakeOP == FSW) {
-        ss << operands[0]->toString() << ", ";
-        ss << operands[1]->toString() << "(";
-        ss << operands[2]->toString() << ")";
+        ss << operands[0]->toString(onEmitting) << ", ";
+        ss << operands[1]->toString(onEmitting) << "(";
+        ss << operands[2]->toString(onEmitting) << ")";
         return ss.str();
     }
-    if (defUse[0] != UNUSED) { ss << operands[0]->toString(); }
+    if (defUse[0] != UNUSED) { ss << operands[0]->toString(onEmitting); }
     for (int i = 1; i < R5_MAX_ARG_NUM; i++) {
         if (defUse[i] == UNUSED)
             break;
         else {
-            ss << ", " << operands[i]->toString();
+            ss << ", " << operands[i]->toString(onEmitting);
         }
     }
+    // fcvt.w.s a5,fa5,rtz
+    if (fakeOP == FCVT_W_S) { ss << ", rtz"; }
     return ss.str();
 }
 

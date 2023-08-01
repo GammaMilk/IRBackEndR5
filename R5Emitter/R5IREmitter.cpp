@@ -4,15 +4,22 @@
 #include <utility>
 
 #include "R5IREmitter.h"
-#include "../MiddleIR/MiddleIRVal.h"
-#include "../MiddleIR/ArrayHelper.h"
+#include "MiddleIRVal.h"
+#include "ArrayHelper.h"
 #include "R5FakeSeihai.h"
+#include "R5Utils.h"
 namespace R5Emitter
 {
 #define endl "\n"
 #define tab "    "
 void R5IREmitter::build(std::ostream& os)
 {
+    // program header
+    os << R"(    .option pic
+    .attribute arch, "rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0"
+    .attribute stack_align, 16
+    .text)"
+       << endl;
     // global variables
     for (auto& globalVar : _middleIRAST->globalVars) {
         // cut first "@"
@@ -105,24 +112,10 @@ void R5IREmitter::build(std::ostream& os)
     }
 
     // functions
-    int blockHash = 0;
-    os << tab << ".text" << endl;
     for (auto& function : _middleIRAST->funcDefs) {
-        os << function->getName().substr(1) << ":" << endl;
-        auto         stackSize = getAllocaSizeOfFunction(function);
-        R5FakeSeihai fakeSeihai(function);
-        fakeSeihai.emitFakeSeihai();
+        R5FakeSeihai fakeSeihai(function, _middleIRAST);
+        fakeSeihai.emitStream(os);
     }
-}
-uint64_t R5IREmitter::getAllocaSizeOfFunction(shared_ptr<MiddleIR::MiddleIRFuncDef> func)
-{
-    uint64_t stackSize = 16;
-    for (auto& bb : func->getBasicBlocks()) {
-        for (auto& inst : bb->_instructions) {
-            if (inst->getInstType() == MiddleIR::MiddleIRInst::AllocaInst) { stackSize += 4; }
-        }
-    }
-    return stackSize;
 }
 #undef tab
 #undef endl

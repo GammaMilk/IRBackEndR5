@@ -469,6 +469,9 @@ public:
         }
         _type = makePointer(innerType);
         _useList.emplace_back(&_from);
+        for (auto& i : _index) {
+            if (!dynamic_pointer_cast<R5IRValConst>(i)) { _useList.emplace_back(&i); }
+        }
     }
     [[nodiscard]] const SPType&                          getFromType() const { return _fromType; }
     [[nodiscard]] const std::shared_ptr<MiddleIRVal>&    getFrom() const { return _from; }

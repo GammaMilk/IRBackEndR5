@@ -23,8 +23,10 @@ public:
     // 负号操作
     void                 negative();
     [[nodiscard]] string toString() const override;
+    string               toString(bool b) const override;
     int                  value;
 };
+
 
 }   // namespace R5Emitter
 

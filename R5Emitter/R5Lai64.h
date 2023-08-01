@@ -17,11 +17,12 @@ public:
 
 public:
     explicit R5Lai64(int64_t value_)
-        : R5Taichi(Lai)
+        : R5Taichi(Lai64)
         , value(value_)
     {
     }
     [[nodiscard]] string toString() const override;
+    [[nodiscard]] string toString(bool b) const override;
     int64_t              value;
 };
 

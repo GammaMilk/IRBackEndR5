@@ -7,8 +7,8 @@
 
 #include <utility>
 
-#include "../R5Def.h"
-#include "../MiddleIR/MiddleIRAST.h"
+#include "R5Def.h"
+#include "MiddleIRAST.h"
 namespace MiddleIR::Optimizer
 {
 

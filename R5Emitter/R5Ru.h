@@ -25,6 +25,7 @@ public:
     {
     }
     [[nodiscard]] string toString() const override;
+    string               toString(bool b) const override;
     string               labelName;
 };
 

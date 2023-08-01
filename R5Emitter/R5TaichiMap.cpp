@@ -3,8 +3,7 @@
 //
 
 #include "R5TaichiMap.h"
-#include "../R5Logger.h"
-
+#include <iostream>
 namespace R5Emitter
 {
 
@@ -15,7 +14,7 @@ MemoryBlock::MemoryBlock(int64_t addr, int64_t sz)
 {
 }
 
-int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
+int64_t R5TaichiMap::allocateImpl(const std::string& variableName, int64_t size)
 {
     // 4字节对齐
     int64_t alignedSize = (size + 3) & (~3);
@@ -70,7 +69,7 @@ int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
                 allocations[variableName] = (*it);
                 if (nextBlock->size >= 0) {
                     // 如果后面的块大小大于0，那么插入后面的块
-                    memory.insert(it, nextBlock);
+                    memory.insert(std::next(it), nextBlock);
                 } else
                     delete nextBlock;
                 return newBlock->address;
@@ -96,19 +95,33 @@ int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
     return lastAddr;
 }
 
+int64_t R5TaichiMap::allocate(const std::string& variableName, int64_t size)
+{
+    auto x = allocateImpl(variableName, size);
+     if (x < 0) return x;
+    allocatedSize[variableName] = size;
+    maxSize = std::max(maxSize, getSize());
+    auto v = invert(x, size);
+    if(v==-816) {
+        return -816;
+    }
+    return v;
+}
+
 void R5TaichiMap::release(const std::string& variableName)
 {
     auto it = allocations.find(variableName);
     if (it != allocations.end()) {
         it->second->allocated = false;
         allocations.erase(it);
+        allocatedSize.erase(variableName);
     } else {
         std::cout << "Error: Variable '" << variableName << "' has not been allocated.\n";
         // LOGE("Variable '" + variableName + "' has not been allocated.");
     }
     // 重新整理内存块链表
     for (auto iterator = memory.begin(); iterator != memory.end(); ++iterator) {
-        if (!(*iterator)->allocated) {
+        if (!((*iterator)->allocated)) {
             // 如果当前块未分配，那么就看看后面的块是否未分配
             auto nextIt = iterator;
             for (++nextIt; nextIt != memory.end(); ++nextIt) {
@@ -125,12 +138,20 @@ void R5TaichiMap::release(const std::string& variableName)
             }
         }
     }
+    // 删除最后的空闲块
+    while (!memory.empty() && !memory.back()->allocated) {
+        delete memory.back();
+        memory.pop_back();
+    }
 }
 
 int64_t R5TaichiMap::query(const std::string& variableName)
 {
     auto it = allocations.find(variableName);
-    return (it != allocations.end()) ? it->second->address : -1;
+    if (it != allocations.end()) {
+        return invert(it->second->address, allocatedSize.at(variableName));
+    } else
+        return -1;
 }
 
 int64_t R5TaichiMap::getSize() const
@@ -141,6 +162,33 @@ int64_t R5TaichiMap::getSize() const
 R5TaichiMap::~R5TaichiMap()
 {
     for (auto& it : memory) { delete it; }
+}
+R5TaichiMap::R5TaichiMap()
+    : inverted(false)
+    , preserveSize(0)
+{
+}
+R5TaichiMap::R5TaichiMap(bool inverted)
+    : inverted(inverted)
+    , preserveSize(16)
+{
+}
+[[maybe_unused]] R5TaichiMap::R5TaichiMap(int64_t preserveSize_)
+    : preserveSize(preserveSize_)
+    , inverted(true)
+{
+}
+int64_t R5TaichiMap::invert(int64_t offset, int64_t size) const
+{
+    if (inverted) {
+        return -preserveSize - offset - size;
+    } else {
+        return offset;
+    }
+}
+int64_t R5TaichiMap::getMaxSize() const
+{
+    return std::max(maxSize, getSize());
 }
 
 

@@ -1,13 +1,12 @@
-/* Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
+/* Copyright (c) 2023 The Merky Project. All rights reserved.
  * Use of this file is governed by the BSD 3-clause license that
  * can be found in the LICENSE.txt file in the project root.
  */
 
 //
 //  main.cpp
-//  antlr4-cpp-demo
 //
-//  Created by Mike Lischke on 13.03.16.
+//  Created by Merky Gao on 2023/7/29.
 //
 
 #include <fstream>
@@ -22,9 +21,9 @@
 #include "tree/ParseTree.h"
 
 #include "R5Logger.h"
-#include "MiddleOpt/IROptimizer.h"
-#include "R5Emitter/R5IREmitter.h"
-#include "MiddleIR/GenIRAST.h"
+#include "IROptimizer.h"
+#include "R5IREmitter.h"
+#include "GenIRAST.h"
 
 using namespace antlrcpp;
 using namespace antlr4;
@@ -51,7 +50,7 @@ void RISC_V_Backend(std::istream& in, std::ostream& out)
     // Optimizer
     auto        irAST       = visitor->getAST();
     auto        SPCopiedAST = make_shared<MiddleIRAST>(irAST);
-    uint64_t    opt         = IROptimizer::REDUNDANT_LOAD_ELIMINATION;
+    uint64_t    opt         = IROptimizer::NONE_OPTIMIZATION;
     IROptimizer optimizer(SPCopiedAST, static_cast<IROptimizer::ENABLED_OPT>(opt));
     optimizer.run();
 

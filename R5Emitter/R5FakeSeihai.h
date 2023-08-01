@@ -6,10 +6,11 @@
 #define IRBACKENDR5_R5FAKESEIHAI_H
 
 #include <list>
-#include "../MiddleIR/MiddleIRInst.h"
+#include "MiddleIRInst.h"
 #include "R5AsmStrangeFake.h"
-#include "../MiddleIR/MiddleIRFuncDef.h"
+#include "MiddleIRFuncDef.h"
 #include "R5TaichiMap.h"
+#include "MiddleIRAST.h"
 using namespace MiddleIR;
 
 namespace R5Emitter
@@ -17,15 +18,21 @@ namespace R5Emitter
 class R5FakeSeihai
 {
 public:
-    explicit R5FakeSeihai(const std::shared_ptr<MiddleIRFuncDef>& funcDef);
+    explicit R5FakeSeihai(
+        const std::shared_ptr<MiddleIRFuncDef>& funcDef, const std::shared_ptr<MiddleIRAST>& irast
+    );
     void emitFakeSeihai();
+    void emitStream(std::ostream& os);
 
-    std::list<string>                   bbNames;
-    std::list<vector<R5AsmStrangeFake>> blockStrangeFake;
+    std::vector<string>                        bbNames;   // 基本块名字(optimized)
+    std::vector<vector<R5AsmStrangeFake>>      blockStrangeFake;
+    std::vector<std::vector<R5AsmStrangeFake>> allocatedCodes;
 
 private:
     int extTempVarNum    = 0;   // 额外的虚拟寄存器
     int extTempMemVarNum = 0;   // 额外的内存常量区
+
+    bool isEmitFinished = false;
 
     // 新建虚拟寄存器
     inline string E();
@@ -37,13 +44,12 @@ private:
     // 内存常量区表
     std::unordered_map<string, uint32_t> constMem;
 
-    // 太极图 表示alloca和spill中相对于sp的正偏移。
-    // std::unordered_map<string, int64_t> taichiMap;
-    R5TaichiMap taichiMap;
+    // 太极图 表示alloca和spill中相对于s0的正偏移。
+    R5TaichiMap taichiMap; //这里只是 声明 。它会被初始化为R5TaichiMap(true)
     // 一般的太极图我们不能满足了！我们需要新的太极图！
     // 分配一个栈空间。单位字节。按4字节对齐。
     void allocateStackSpace(const string& name, int64_t size);
-    // 查询太极图中的偏移量。是sp的正偏移。
+    // 查询太极图中的偏移量。是s0的负偏移。
     int64_t queryStackSpace(const string& name);
     // 太极图中真的有吗？如有！
     bool queryInStackSpace(const string& name);
@@ -55,7 +61,15 @@ private:
     // 函数第一个基本块标签
     string funcFirstBBLabel();
 
+    // 函数在栈上的参数区大小
+    int funcStackArgCount = 0;
+    // 函数的整数参数计数
+    int funcIntArgCount = 0;
+    // 函数的浮点参数计数
+    int funcFloatArgCount = 0;
+
     const std::shared_ptr<MiddleIRFuncDef>& thisFunc;
+    const std::shared_ptr<MiddleIRAST>&     ast;
 
     void emitBB(const std::shared_ptr<MiddleIRBasicBlock>& bb);
 
@@ -65,6 +79,7 @@ private:
     void handleAllocaInst(const shared_ptr<MiddleIRInst>& inst1);
     void handleLoadInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleStoreInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
+    void handleArgStoreInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleICmpNoBr(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleCvtInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleBitcastInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
@@ -75,6 +90,24 @@ private:
     void handleGEPInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleCallInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
     void handleRetInst(vector<R5AsmStrangeFake>& sf, const shared_ptr<MiddleIRInst>& inst1);
+
+    // 为了方便，这个函数用来l/s一个寄存器+偏移量的内存地址.
+    void accessStack(
+        vector<R5AsmStrangeFake>&   sf,
+        FakeOPs                     op,
+        const shared_ptr<R5Taichi>& op1,
+        int64_t                     offset,
+        YangReg                     st
+    );
+    std::set<YangReg> totalUsedReg;   // Only saved Callee-Saved Regs
+    static void              accessStackWithTmp(
+                     vector<R5AsmStrangeFake>&   sf,
+                     FakeOPs                     op,
+                     const shared_ptr<R5Taichi>& op1,
+                     int64_t                     offset,
+                     YangReg                     st,
+                     YangReg                     tmp
+                 );
 };
 
 }   // namespace R5Emitter

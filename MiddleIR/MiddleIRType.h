@@ -5,8 +5,8 @@
 #ifndef IRBACKENDR5_MIDDLEIRTYPE_H
 #define IRBACKENDR5_MIDDLEIRTYPE_H
 #include <utility>
-#include "../R5Logger.h"
-#include "../R5Def.h"
+#include "R5Logger.h"
+#include "R5Def.h"
 namespace MiddleIR
 {
 

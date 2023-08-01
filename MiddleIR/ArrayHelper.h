@@ -5,7 +5,7 @@
 #ifndef IRBACKENDR5_ARRAY_HELPER_H
 #define IRBACKENDR5_ARRAY_HELPER_H
 #include <forward_list>
-#include "../R5Def.h"
+#include "R5Def.h"
 #include "MiddleIRVal.h"
 namespace MiddleIR
 {

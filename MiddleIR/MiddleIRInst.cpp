@@ -15,10 +15,11 @@ namespace MiddleIR
         if (*use == oldVal) {
             *use     = newVal;
             replaced = true;
-            LOGD(
-                "Replaced " << (oldVal)->getName() << " with " << (newVal)->getName() << " in "
-                            << getName()
-            );
+            //            LOGD(
+            //                "Replaced " << (oldVal)->getName() << " with " << (newVal)->getName()
+            //                << " in "
+            //                            << getName()
+            //            );
             break;
         }
     }

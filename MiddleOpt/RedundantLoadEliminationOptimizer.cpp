@@ -42,6 +42,18 @@ void RedundantLoadEliminationOptimizer::run()
                     }
                 }
             }
+            {
+                // handle the terminator inst(ret...)
+                auto inst = bb->getTerminator();
+                for (const auto& u : inst->getUseList()) {
+                    // u must be a LOAD inst then we can optimize
+                    auto loadInst = dynamic_pointer_cast<LoadInst>(*u);
+                    if (!loadInst) continue;
+                    if (loadFrom.find(loadInst->getFrom()) != loadFrom.end()) {
+                        inst->tryReplaceUse(*u, fromFirstRepWithSecond[loadInst->getFrom()]);
+                    }
+                }
+            }
             // round 2: actually delete
             // cannot inplace delete, because it will change the size of vector
             // create another list

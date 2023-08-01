@@ -6,8 +6,9 @@
 #define IRBACKENDR5_R5IREMITTER_H
 #include <utility>
 
-#include "../R5Def.h"
-#include "../MiddleIR/MiddleIRAST.h"
+#include "R5Def.h"
+#include "MiddleIRAST.h"
+#include "R5Yang.h"
 namespace R5Emitter
 {
 class R5IREmitter
@@ -19,10 +20,8 @@ public:
     {
     }
     void build(std::ostream& os);
-
 protected:
     shared_ptr<MiddleIR::MiddleIRAST> _middleIRAST;
-    static uint64_t getAllocaSizeOfFunction(shared_ptr<MiddleIR::MiddleIRFuncDef> func);
 };
 }   // namespace R5Emitter
 #endif   // IRBACKENDR5_R5IREMITTER_H
